@@ -27,6 +27,7 @@ namespace FastExplorer.ViewModels {
 		public string FullPath => _fullPathOverride ?? Path.Combine(_directory, _fileName);
 		public long Size { get; protected set; }
 		public DateTime DateModified { get; }
+		public virtual string OriginalLocation => "";
 
 		public bool IsRenaming {
 			get => _isRenaming;
@@ -246,6 +247,35 @@ namespace FastExplorer.ViewModels {
 
 		protected override ImageSource? LoadIcon(int size) {
 			return IconHelper.GetFolderIcon(FullPath, false, size);
+		}
+	}
+
+	public class ShellFileItemViewModel : FileItemViewModel {
+		private readonly bool _isFolder;
+		private readonly string _type;
+		private readonly string _originalLocation;
+
+		public override bool IsFolder => _isFolder;
+		public override string Type => !string.IsNullOrEmpty(_type) ? _type : (_isFolder ? "File folder" : base.Type);
+		public override string DisplaySize => (_isFolder && Size == 0) ? "" : base.DisplaySize;
+		public override string OriginalLocation => _originalLocation;
+
+		public ShellFileItemViewModel(string name, string fullPath, bool isFolder, long size, DateTime dateModified, string type = "", string originalLocation = "") 
+			: base(name, fullPath, dateModified) {
+			_isFolder = isFolder;
+			Size = size;
+			_type = type;
+			_originalLocation = originalLocation;
+		}
+
+		protected override ImageSource? LoadIcon(int size) {
+			if (_isFolder) {
+				return IconHelper.GetFolderIcon(FullPath, false, size);
+			}
+			if (FullPath.StartsWith("::") || FullPath.StartsWith("shell:")) {
+				return IconHelper.GetThumbnail(FullPath, size);
+			}
+			return base.LoadIcon(size);
 		}
 	}
 }

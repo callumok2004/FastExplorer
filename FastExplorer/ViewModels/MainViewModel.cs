@@ -10,10 +10,12 @@ namespace FastExplorer.ViewModels {
 		private ObservableCollection<DirectoryItemViewModel> _quickAccess;
 		private ObservableCollection<TabViewModel> _tabs;
 		private TabViewModel? _selectedTab;
+		private RecycleBinItemViewModel _recycleBin;
 
 		public ICommand AddTabCommand { get; }
 		public ICommand CloseTabCommand { get; }
 		public ICommand NavigateToThisPCCommand { get; }
+		public ICommand NavigateToRecycleBinCommand { get; }
 		public ICommand OpenOptionsCommand { get; }
 		public ICommand PinToQuickAccessCommand { get; }
 		public ICommand UnpinFromQuickAccessCommand { get; }
@@ -26,7 +28,12 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _systemStatus, value);
 		}
 
-		public bool IsDebug {
+		public RecycleBinItemViewModel RecycleBin {
+			get => _recycleBin;
+			set => SetProperty(ref _recycleBin, value);
+		}
+
+		public static bool IsDebug {
 			get {
 #if DEBUG
 				return true;
@@ -47,6 +54,7 @@ namespace FastExplorer.ViewModels {
 			_drives = [];
 			_quickAccess = [];
 			_tabs = [];
+			_recycleBin = new RecycleBinItemViewModel();
 
 #if DEBUG
 			_currentProcess = Process.GetCurrentProcess();
@@ -57,8 +65,8 @@ namespace FastExplorer.ViewModels {
 			_statusTimer.Start();
 #endif
 
-			LoadQuickAccess();
-			LoadDrives();
+			_ = LoadQuickAccessAsync();
+			_ = LoadDrivesAsync();
 
 			AddTabCommand = new RelayCommand(param => AddTab(param as string));
 			CloseTabCommand = new RelayCommand(param => CloseTab(param as TabViewModel));
@@ -66,6 +74,13 @@ namespace FastExplorer.ViewModels {
 				SelectedTab?.NavigateTo("This PC");
 				ClearSelection(QuickAccess);
 				ClearSelection(Drives);
+				RecycleBin?.IsSelected = false;
+			});
+			NavigateToRecycleBinCommand = new RelayCommand(_ => {
+				SelectedTab?.NavigateTo(RecycleBin.FullPath);
+				ClearSelection(QuickAccess);
+				ClearSelection(Drives);
+				RecycleBin.IsSelected = true;
 			});
 			OpenOptionsCommand = new RelayCommand(_ => {
 				var options = new OptionsWindow { Owner = Application.Current.MainWindow };
@@ -118,7 +133,7 @@ namespace FastExplorer.ViewModels {
 						list.RemoveAt(index);
 						list.Insert(newIndex, item);
 						AppSettings.Save();
-						LoadQuickAccess();
+						_ = LoadQuickAccessAsync();
 					}
 				}
 			}
@@ -151,6 +166,47 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _selectedTab, value);
 		}
 
+		public void OnTabNavigated(TabViewModel tab) {
+			if (tab == SelectedTab) {
+				UpdateSidebarSelection(tab.CurrentPath);
+			}
+		}
+
+		private bool _isSidebarUpdating;
+		public bool IsSidebarUpdating => _isSidebarUpdating;
+
+		private void UpdateSidebarSelection(string path) {
+			if (_isSidebarUpdating) return;
+			_isSidebarUpdating = true;
+			try {
+				ClearSelection(QuickAccess);
+				ClearSelection(Drives);
+				RecycleBin?.IsSelected = false;
+
+				if (RecycleBin != null && (path == RecycleBin.FullPath || path.StartsWith("shell:RecycleBinFolder") || path.StartsWith("::{645FF040-5081-101B-9F08-00AA002F954E}"))) {
+					RecycleBin.IsSelected = true;
+					return;
+				}
+
+				foreach (var item in QuickAccess) {
+					if (item.FullPath.Equals(path, StringComparison.OrdinalIgnoreCase)) {
+						item.IsSelected = true;
+						return;
+					}
+				}
+
+				foreach (var drive in Drives) {
+					if (path.Equals(drive.FullPath, StringComparison.OrdinalIgnoreCase)) {
+						drive.IsSelected = true;
+						return;
+					}
+				}
+			}
+			finally {
+				_isSidebarUpdating = false;
+			}
+		}
+
 		public void ReorderQuickAccess(DirectoryItemViewModel source, DirectoryItemViewModel target) {
 			var list = AppSettings.Current.PinnedFolders;
 			int oldIndex = list.FindIndex(p => p.Equals(source.FullPath, StringComparison.OrdinalIgnoreCase));
@@ -161,7 +217,7 @@ namespace FastExplorer.ViewModels {
 				list.RemoveAt(oldIndex);
 				list.Insert(newIndex, item);
 				AppSettings.Save();
-				LoadQuickAccess();
+				_ = LoadQuickAccessAsync();
 			}
 		}
 
@@ -189,31 +245,41 @@ namespace FastExplorer.ViewModels {
 			if (Tabs.Count == 0) Application.Current.Shutdown();
 		}
 
-		private void LoadQuickAccess() {
+		private async Task LoadQuickAccessAsync() {
 			QuickAccess.Clear();
 
-			if (AppSettings.Current.PinnedFolders.Count == 0) {
-				var defaults = new[] {
-					Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-					Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-					Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-					Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
-					Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
-					Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads"
-				};
+			await Task.Run(() => {
+				if (AppSettings.Current.PinnedFolders.Count == 0) {
+					var defaults = new[] {
+						Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+						Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+						Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+						Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
+						Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
+						Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads"
+					};
 
-				foreach (var path in defaults) {
-					if (Directory.Exists(path) && !AppSettings.Current.PinnedFolders.Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase))) {
-						AppSettings.Current.PinnedFolders.Add(path);
+					foreach (var path in defaults) {
+						if (Directory.Exists(path) && !AppSettings.Current.PinnedFolders.Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase))) {
+							AppSettings.Current.PinnedFolders.Add(path);
+						}
+					}
+					AppSettings.Save();
+				}
+			});
+
+			var items = await Task.Run(() => {
+				var list = new List<DirectoryItemViewModel>();
+				foreach (var path in AppSettings.Current.PinnedFolders) {
+					if (Directory.Exists(path)) {
+						list.Add(new DirectoryItemViewModel(path));
 					}
 				}
-				AppSettings.Save();
-			}
+				return list;
+			});
 
-			foreach (var path in AppSettings.Current.PinnedFolders) {
-				if (Directory.Exists(path)) {
-					QuickAccess.Add(new DirectoryItemViewModel(path));
-				}
+			foreach (var item in items) {
+				QuickAccess.Add(item);
 			}
 		}
 
@@ -222,7 +288,7 @@ namespace FastExplorer.ViewModels {
 			if (!AppSettings.Current.PinnedFolders.Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase))) {
 				AppSettings.Current.PinnedFolders.Add(path);
 				AppSettings.Save();
-				LoadQuickAccess();
+				_ = LoadQuickAccessAsync();
 			}
 		}
 
@@ -231,13 +297,21 @@ namespace FastExplorer.ViewModels {
 			if (item != null) {
 				_ = AppSettings.Current.PinnedFolders.Remove(item);
 				AppSettings.Save();
-				LoadQuickAccess();
+				_ = LoadQuickAccessAsync();
 			}
 		}
 
-		private void LoadDrives() {
-			foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
-				Drives.Add(new DirectoryItemViewModel(drive.RootDirectory.FullName, drive.Name, drive.VolumeLabel, true));
+		private async Task LoadDrivesAsync() {
+			var drives = await Task.Run(() => {
+				var list = new List<DirectoryItemViewModel>();
+				foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
+					list.Add(new DirectoryItemViewModel(drive.RootDirectory.FullName, drive.Name, drive.VolumeLabel, true));
+				}
+				return list;
+			});
+
+			foreach (var drive in drives) {
+				Drives.Add(drive);
 			}
 		}
 	}

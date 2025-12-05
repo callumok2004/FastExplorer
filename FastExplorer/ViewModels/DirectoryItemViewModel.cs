@@ -55,7 +55,7 @@ namespace FastExplorer.ViewModels {
 
 			_subDirectories = [];
 
-			if (fullPath != "This PC" && HasSubDirectories(fullPath)) {
+			if (fullPath != "This PC" && !fullPath.StartsWith("::") && !fullPath.StartsWith("shell:") && HasSubDirectories(fullPath)) {
 				_subDirectories.Add(new DirectoryItemViewModel("dummy"));
 				_hasDummyChild = true;
 			}

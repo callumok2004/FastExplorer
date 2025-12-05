@@ -89,6 +89,7 @@ namespace FastExplorer {
 
 		private void TreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e) {
 			if (DataContext is MainViewModel vm && vm.SelectedTab != null && e.NewValue is DirectoryItemViewModel selectedDir) {
+				if (vm.IsSidebarUpdating) return;
 				vm.SelectedTab.NavigateTo(selectedDir.FullPath);
 
 				if (sender is TreeView tv) {
@@ -434,6 +435,14 @@ namespace FastExplorer {
 
 			var list = shellItems as IList<ShellContextMenu.ShellMenuItem> ?? [.. shellItems];
 
+			bool isRecycleBin = false;
+			if (DataContext is MainViewModel vm && vm.SelectedTab != null) {
+				var path = vm.SelectedTab.CurrentPath;
+				if (!string.IsNullOrEmpty(path) && (path.StartsWith("shell:RecycleBinFolder") || path.Contains("645FF040-5081-101B-9F08-00AA002F954E"))) {
+					isRecycleBin = true;
+				}
+			}
+
 			if (list.Count > 0) {
 				if (!list[0].IsSeparator) {
 					var sep = new Separator { Tag = "ShellItem" };
@@ -444,36 +453,38 @@ namespace FastExplorer {
 				}
 
 				foreach (var shellItem in list) {
-					_ = menu.Items.Add(CreateMenuItem(shellItem));
+					_ = menu.Items.Add(CreateMenuItem(shellItem, isRecycleBin));
 				}
 
-				var moreSep = new Separator { Tag = "ShellItem" };
-				if (Application.Current.MainWindow?.FindResource("ContextMenuSeparatorStyle") is Style moreSepStyle) {
-					moreSep.Style = moreSepStyle;
+				if (!isRecycleBin) {
+					var moreSep = new Separator { Tag = "ShellItem" };
+					if (Application.Current.MainWindow?.FindResource("ContextMenuSeparatorStyle") is Style moreSepStyle) {
+						moreSep.Style = moreSepStyle;
+					}
+					_ = menu.Items.Add(moreSep);
+					var showMore = new MenuItem {
+						Header = "Show more options",
+						Tag = "ShellItem",
+						Icon = new TextBlock { Text = "\uE712", FontFamily = new FontFamily("Segoe Fluent Icons") }
+					};
+					showMore.Click += (s, e) => {
+						menu.IsOpen = false;
+						_ = Dispatcher.BeginInvoke(new Action(() => {
+							_ = GetCursorPos(out POINT p);
+							if (menu.DataContext is FileItemViewModel fileItem) {
+								ShowShellContextMenu(fileItem.FullPath, new Point(p.X, p.Y));
+							}
+							else if (menu.DataContext is DirectoryItemViewModel dirItem) {
+								ShowShellContextMenu(dirItem.FullPath, new Point(p.X, p.Y));
+							}
+						}), System.Windows.Threading.DispatcherPriority.Input);
+					};
+					_ = menu.Items.Add(showMore);
 				}
-				_ = menu.Items.Add(moreSep);
-				var showMore = new MenuItem {
-					Header = "Show more options",
-					Tag = "ShellItem",
-					Icon = new TextBlock { Text = "\uE712", FontFamily = new FontFamily("Segoe Fluent Icons") }
-				};
-				showMore.Click += (s, e) => {
-					menu.IsOpen = false;
-					_ = Dispatcher.BeginInvoke(new Action(() => {
-						_ = GetCursorPos(out POINT p);
-						if (menu.DataContext is FileItemViewModel fileItem) {
-							ShowShellContextMenu(fileItem.FullPath, new Point(p.X, p.Y));
-						}
-						else if (menu.DataContext is DirectoryItemViewModel dirItem) {
-							ShowShellContextMenu(dirItem.FullPath, new Point(p.X, p.Y));
-						}
-					}), System.Windows.Threading.DispatcherPriority.Input);
-				};
-				_ = menu.Items.Add(showMore);
 			}
 		}
 
-		private static Control CreateMenuItem(ShellContextMenu.ShellMenuItem item) {
+		private Control CreateMenuItem(ShellContextMenu.ShellMenuItem item, bool isRecycleBin) {
 			if (item.IsSeparator) {
 				var sep = new Separator { Tag = "ShellItem" };
 				if (Application.Current.MainWindow?.FindResource("ContextMenuSeparatorStyle") is Style style) {
@@ -484,17 +495,28 @@ namespace FastExplorer {
 
 			var menuItem = new MenuItem {
 				Header = item.Name,
-				Command = item.Command,
 				Tag = "ShellItem"
 			};
 
-			if (item.Icon != null) {
+			if (isRecycleBin && item.Name == "Restore") {
+				menuItem.Command = new RelayCommand(param => {
+					item.Command?.Execute(param);
+					if (DataContext is MainViewModel vm && vm.SelectedTab != null) {
+						vm.SelectedTab.RefreshCommand.Execute(null);
+					}
+				});
+			}
+			else {
+				menuItem.Command = item.Command;
+			}
+
+			if (!isRecycleBin && item.Icon != null) {
 				menuItem.Icon = new Image { Source = item.Icon, Width = 16, Height = 16 };
 			}
 
 			if (item.Children.Count > 0) {
 				foreach (var child in item.Children) {
-					_ = menuItem.Items.Add(CreateMenuItem(child));
+					_ = menuItem.Items.Add(CreateMenuItem(child, isRecycleBin));
 				}
 			}
 

@@ -64,6 +64,42 @@
         <converters:DateToGroupHeaderConverter x:Key="DateToGroupHeaderConverter" />
         <converters:UniversalBoolToVisibilityConverter x:Key="BoolToVis" />
 
+        <GridView x:Key="RecycleBinView" x:Shared="False">
+            <GridViewColumn Width="350" Header="Name">
+                <GridViewColumn.CellTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <Image
+                                Width="16"
+                                Height="16"
+                                Margin="0,0,8,0"
+                                Source="{Binding Icon}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{StaticResource TextPrimary}"
+                                Text="{Binding Name}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn
+                Width="200"
+                DisplayMemberBinding="{Binding OriginalLocation}"
+                Header="Original Location" />
+            <GridViewColumn
+                Width="180"
+                DisplayMemberBinding="{Binding DateModifiedString}"
+                Header="Date Deleted" />
+            <GridViewColumn
+                Width="100"
+                DisplayMemberBinding="{Binding DisplaySize}"
+                Header="Size" />
+            <GridViewColumn
+                Width="120"
+                DisplayMemberBinding="{Binding Type}"
+                Header="Type" />
+        </GridView>
+
         <Style x:Key="RoundedProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="10" />
             <Setter Property="BorderThickness" Value="0" />
@@ -806,6 +842,11 @@
                 </Setter.Value>
             </Setter>
             <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.TabName, RelativeSource={RelativeSource AncestorType=ListView}}" Value="Recycle Bin">
+                    <Setter Property="ContextMenu" Value="{x:Null}" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="ListView">
@@ -868,6 +909,9 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
+                <DataTrigger Binding="{Binding TabName}" Value="Recycle Bin">
+                    <Setter Property="View" Value="{StaticResource RecycleBinView}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsDetailsView}" Value="False">
                     <Setter Property="View" Value="{x:Null}" />
                     <Setter Property="ItemContainerStyle" Value="{StaticResource TileViewItemStyle}" />
@@ -996,6 +1040,11 @@
                 </Setter.Value>
             </Setter>
             <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.TabName, RelativeSource={RelativeSource AncestorType=ListView}}" Value="Recycle Bin">
+                    <Setter Property="ContextMenu" Value="{x:Null}" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="GridViewColumnHeader">
@@ -1810,6 +1859,59 @@
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
+
+                        <Separator Margin="10,10" Background="{StaticResource BorderBrush}" />
+
+                        <Button
+                            Margin="10,5,10,5"
+                            Padding="5,4"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding NavigateToRecycleBinCommand}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border
+                                        x:Name="Bd"
+                                        Padding="{TemplateBinding Padding}"
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image
+                                                Width="20"
+                                                Height="20"
+                                                Margin="0,0,10,0"
+                                                Source="{Binding RecycleBin.Icon}" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    Foreground="{StaticResource TextSecondary}"
+                                                    Text="{Binding RecycleBin.Name}" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{StaticResource TextSecondary}"
+                                                    Opacity="0.6"
+                                                    Text="{Binding RecycleBin.SizeText}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                            <Setter Property="Cursor" Value="Hand" />
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding RecycleBin.IsSelected}" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}" />
+                                        </DataTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

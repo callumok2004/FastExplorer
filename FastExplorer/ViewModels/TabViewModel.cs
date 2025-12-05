@@ -159,7 +159,7 @@ namespace FastExplorer.ViewModels {
 					}
 					await LoadFilesAsync(CurrentPath);
 				}
-			}, _ => Clipboard.ContainsFileDropList() && !string.IsNullOrEmpty(CurrentPath) && CurrentPath != "This PC");
+			}, _ => Clipboard.ContainsFileDropList() && !string.IsNullOrEmpty(CurrentPath) && CurrentPath != "This PC" && !CurrentPath.StartsWith("shell:RecycleBinFolder") && !CurrentPath.Contains("645FF040-5081-101B-9F08-00AA002F954E"));
 			RenameCommand = new RelayCommand(param => {
 				var itemToRename = param as FileItemViewModel;
 				if (itemToRename == null && _selectedItems.Count == 1) itemToRename = _selectedItems[0];
@@ -506,7 +506,9 @@ namespace FastExplorer.ViewModels {
 			}
 
 			bool isThisPC = path == "This PC";
-			if (!isThisPC && !Directory.Exists(path)) return;
+			bool isRecycleBin = path.StartsWith("::") || path.StartsWith("shell:");
+
+			if (!isThisPC && !isRecycleBin && !Directory.Exists(path)) return;
 
 			if (_currentPath == path && Files.Count > 0) return;
 
@@ -518,6 +520,8 @@ namespace FastExplorer.ViewModels {
 			_isNavigating = true;
 			CurrentPath = path;
 			AddressBarText = path;
+
+			_mainViewModel.OnTabNavigated(this);
 
 			if (AppSettings.Current.FolderViewStates.TryGetValue(path, out var state)) {
 				if (_itemSize != state.ItemSize) {
@@ -532,6 +536,10 @@ namespace FastExplorer.ViewModels {
 			if (isThisPC) {
 				TabName = "This PC";
 				Icon = IconHelper.GetFolderIcon(Environment.GetFolderPath(Environment.SpecialFolder.MyComputer), false, 16);
+			}
+			else if (isRecycleBin) {
+				TabName = "Recycle Bin";
+				Icon = IconHelper.GetThumbnail("shell:RecycleBinFolder", 16);
 			}
 			else {
 				string name = new DirectoryInfo(path).Name;
@@ -551,6 +559,10 @@ namespace FastExplorer.ViewModels {
 
 			if (path == "This PC") {
 				segments.Add(new PathSegmentViewModel("This PC", "This PC", NavigateCommand));
+			}
+			else if (path.StartsWith("::") || path.StartsWith("shell:")) {
+				segments.Add(new PathSegmentViewModel("This PC", "This PC", NavigateCommand));
+				segments.Add(new PathSegmentViewModel("Recycle Bin", path, NavigateCommand));
 			}
 			else {
 				var stack = new Stack<PathSegmentViewModel>();
@@ -600,6 +612,11 @@ namespace FastExplorer.ViewModels {
 
 		private void OpenItem(object? parameter) {
 			if (parameter is FileItemViewModel fileItem) {
+				if (CurrentPath.StartsWith("shell:RecycleBinFolder") || CurrentPath.Contains("645FF040-5081-101B-9F08-00AA002F954E")) {
+					_ = ShellHelper.ShowFileProperties(fileItem.FullPath);
+					return;
+				}
+
 				if (fileItem.IsFolder) {
 					NavigateTo(fileItem.FullPath);
 				}
@@ -639,6 +656,32 @@ namespace FastExplorer.ViewModels {
 						Files = new ObservableCollection<FileItemViewModel>(list);
 						StatusText = $"{Files.Count} items";
 						ItemCount = Files.Count;
+					});
+				});
+				return;
+			}
+
+			if (path.StartsWith("::") || path.StartsWith("shell:")) {
+				await Task.Run(() => {
+					var list = new List<FileItemViewModel>();
+					try {
+						var items = ShellHelper.EnumerateShellFolder(path);
+						foreach (var item in items) {
+							list.Add(new ShellFileItemViewModel(item.Name, item.Path, item.IsFolder, item.Size, item.DateModified, item.Type, item.OriginalLocation));
+						}
+					}
+					catch { }
+
+					Application.Current.Dispatcher.Invoke(() => {
+						_allFiles = list;
+						Files = new ObservableCollection<FileItemViewModel>(list);
+						StatusText = $"{Files.Count} items";
+						ItemCount = Files.Count;
+						
+						foreach (var file in Files) {
+							file.RefreshIcon((int)ItemSize);
+						}
+						ApplySort();
 					});
 				});
 				return;

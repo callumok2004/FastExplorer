@@ -119,6 +119,9 @@ namespace FastExplorer.Helpers {
 		[LibraryImport("shell32.dll", EntryPoint = "SHGetFileInfoW", StringMarshalling = StringMarshalling.Utf16)]
 		private static partial IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
 
+		[LibraryImport("shell32.dll", EntryPoint = "SHGetFileInfoW")]
+		private static partial IntPtr SHGetFileInfo(IntPtr pidl, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+
 		[LibraryImport("user32.dll", SetLastError = true)]
 		[return: MarshalAs(UnmanagedType.Bool)]
 		private static partial bool DestroyIcon(IntPtr hIcon);
@@ -190,15 +193,50 @@ namespace FastExplorer.Helpers {
 			return GetIcon(path, true, open, false, size);
 		}
 
+		[LibraryImport("shell32.dll", StringMarshalling = StringMarshalling.Utf16)]
+		private static partial int SHParseDisplayName(
+			string pszName,
+			IntPtr pbc,
+			out IntPtr ppidl,
+			uint sfgaoIn,
+			out uint psfgaoOut);
+
+		[LibraryImport("shell32.dll")]
+		private static partial void ILFree(IntPtr pidl);
+
+		private const uint SHGFI_PIDL = 0x8;
+
 		private static ImageSource? GetIcon(string path, bool isFolder, bool isOpen, bool useFileAttributes, int size) {
+			IntPtr pidl = IntPtr.Zero;
+			bool pidlCreated = false;
+
+			if (path.StartsWith("::") || path.StartsWith("shell:")) {
+				var thumb = GetThumbnail(path, size);
+				if (thumb != null) return thumb;
+				
+				if (SHParseDisplayName(path, IntPtr.Zero, out pidl, 0, out _) == 0) {
+					pidlCreated = true;
+					useFileAttributes = false;
+				}
+			}
+
 			var flags = SHGFI_SYSICONINDEX;
 			if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
 			if (isOpen) flags |= SHGFI_OPENICON;
+			if (pidlCreated) flags |= SHGFI_PIDL;
 
 			var attributes = isFolder ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
 
 			SHFILEINFO shinfo = new();
-			IntPtr result = SHGetFileInfo(path, attributes, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
+			IntPtr result;
+			
+			if (pidlCreated) {
+				result = SHGetFileInfo(pidl, attributes, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
+			} else {
+				result = SHGetFileInfo(path, attributes, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
+			}
+
+			if (pidlCreated) ILFree(pidl);
 
 			if (result == IntPtr.Zero) return null;
 
@@ -215,9 +253,21 @@ namespace FastExplorer.Helpers {
 				var loadFlags = SHGFI_ICON | SHGFI_SMALLICON;
 				if (useFileAttributes) loadFlags |= SHGFI_USEFILEATTRIBUTES;
 				if (isOpen) loadFlags |= SHGFI_OPENICON;
+				if (pidlCreated) loadFlags |= SHGFI_PIDL;
 
 				SHFILEINFO loadInfo = new();
-				IntPtr hImg = SHGetFileInfo(path, attributes, ref loadInfo, (uint)Marshal.SizeOf(loadInfo), loadFlags);
+				IntPtr hImg;
+				
+				if (pidlCreated) {
+					if (SHParseDisplayName(path, IntPtr.Zero, out IntPtr pidl2, 0, out _) == 0) {
+						hImg = SHGetFileInfo(pidl2, attributes, ref loadInfo, (uint)Marshal.SizeOf(loadInfo), loadFlags);
+						ILFree(pidl2);
+					} else {
+						hImg = IntPtr.Zero;
+					}
+				} else {
+					hImg = SHGetFileInfo(path, attributes, ref loadInfo, (uint)Marshal.SizeOf(loadInfo), loadFlags);
+				}
 				
 				if (hImg != IntPtr.Zero) {
 					icon = Imaging.CreateBitmapSourceFromHIcon(loadInfo.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
@@ -250,7 +300,7 @@ namespace FastExplorer.Helpers {
 		}
 
 		[LibraryImport("shell32.dll", StringMarshalling = StringMarshalling.Utf16)]
-		private static partial void SHCreateItemFromParsingName(
+		private static partial int SHCreateItemFromParsingName(
 			string pszPath,
 			IntPtr pbc,
 			in Guid riid,
@@ -279,20 +329,22 @@ namespace FastExplorer.Helpers {
 		public static ImageSource? GetThumbnail(string path, int size) {
 			try {
 				Guid uuid = new("bcc18b79-ba16-442f-80c4-8a59c30c463b");
-				SHCreateItemFromParsingName(path, IntPtr.Zero, uuid, out IShellItemImageFactory factory);
+				int hr = SHCreateItemFromParsingName(path, IntPtr.Zero, uuid, out IShellItemImageFactory factory);
 
-				factory.GetImage(new SIZE { cx = size, cy = size }, 0, out IntPtr hBitmap);
+				if (hr == 0 && factory != null) {
+					factory.GetImage(new SIZE { cx = size, cy = size }, 0, out IntPtr hBitmap);
 
-				if (hBitmap != IntPtr.Zero) {
-					var source = Imaging.CreateBitmapSourceFromHBitmap(
-						hBitmap,
-						IntPtr.Zero,
-						Int32Rect.Empty,
-						BitmapSizeOptions.FromEmptyOptions());
+					if (hBitmap != IntPtr.Zero) {
+						var source = Imaging.CreateBitmapSourceFromHBitmap(
+							hBitmap,
+							IntPtr.Zero,
+							Int32Rect.Empty,
+							BitmapSizeOptions.FromEmptyOptions());
 
-					_ = DeleteObject(hBitmap);
-					source.Freeze();
-					return source;
+						_ = DeleteObject(hBitmap);
+						source.Freeze();
+						return source;
+					}
 				}
 			}
 			catch { }
