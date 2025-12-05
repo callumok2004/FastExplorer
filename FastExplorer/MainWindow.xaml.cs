@@ -261,7 +261,33 @@ namespace FastExplorer {
 					string path = vm.SelectedTab.CurrentPath;
 					if (!string.IsNullOrEmpty(path)) {
 						if (path == "This PC") {
-							ShellContextMenu.ShowContextMenu(["::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"], point);
+							var menu = new ContextMenu();
+							if (Application.Current.MainWindow?.FindResource("DefaultContextMenuStyle") is Style style) {
+								menu.Style = style;
+							}
+
+							var addItem = new MenuItem { Header = "Add network location" };
+							addItem.Icon = new TextBlock { Text = "\uE710", FontFamily = new FontFamily("Segoe Fluent Icons") };
+							addItem.Click += (s, args) => vm.AddNetworkShareCommand.Execute(null);
+							_ = menu.Items.Add(addItem);
+
+							var sep = new Separator();
+							if (Application.Current.MainWindow?.FindResource("ContextMenuSeparatorStyle") is Style sepStyle) {
+								sep.Style = sepStyle;
+							}
+							_ = menu.Items.Add(sep);
+
+							var propsItem = new MenuItem { Header = "Properties" };
+							propsItem.Icon = new TextBlock { Text = "\uE946", FontFamily = new FontFamily("Segoe Fluent Icons") };
+							propsItem.Click += (s, args) => {
+								try {
+									ShellContextMenu.ShowContextMenu(["::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"], point);
+								}
+								catch { }
+							};
+							_ = menu.Items.Add(propsItem);
+
+							menu.IsOpen = true;
 						}
 						else if (Directory.Exists(path)) {
 							ShellContextMenu.ShowContextMenu([path], point);

@@ -486,6 +486,12 @@ namespace FastExplorer.ViewModels {
 						view.SortDescriptions.Add(new SortDescription("DateModified", _sortDirection));
 					}
 				}
+				else if (CurrentPath == "This PC") {
+					view.GroupDescriptions.Clear();
+					view.GroupDescriptions.Add(new PropertyGroupDescription("Category"));
+					view.SortDescriptions.Add(new SortDescription("Category", ListSortDirection.Ascending));
+					view.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+				}
 				else {
 					view.GroupDescriptions.Clear();
 					view.SortDescriptions.Add(new SortDescription("IsFolder", ListSortDirection.Descending));
@@ -507,8 +513,9 @@ namespace FastExplorer.ViewModels {
 
 			bool isThisPC = path == "This PC";
 			bool isRecycleBin = path.StartsWith("::") || path.StartsWith("shell:");
+			bool isNetwork = path.StartsWith(@"\\");
 
-			if (!isThisPC && !isRecycleBin && !Directory.Exists(path)) return;
+			if (!isThisPC && !isRecycleBin && !isNetwork && !Directory.Exists(path)) return;
 
 			if (_currentPath == path && Files.Count > 0) return;
 
@@ -651,11 +658,16 @@ namespace FastExplorer.ViewModels {
 						list.Add(new DriveItemViewModel(drive));
 					}
 
+					foreach (var share in AppSettings.Current.NetworkShares) {
+						list.Add(new NetworkShareItemViewModel(share));
+					}
+
 					Application.Current.Dispatcher.Invoke(() => {
 						_allFiles = list;
 						Files = new ObservableCollection<FileItemViewModel>(list);
 						StatusText = $"{Files.Count} items";
 						ItemCount = Files.Count;
+						ApplySort();
 					});
 				});
 				return;
@@ -727,11 +739,70 @@ namespace FastExplorer.ViewModels {
 				});
 			}
 			catch (UnauthorizedAccessException) {
-				StatusText = "Access Denied";
+				await HandleAccessDeniedAsync(path);
+			}
+			catch (IOException ex) {
+				if (path.StartsWith(@"\\")) {
+					await HandleAccessDeniedAsync(path);
+				}
+				else {
+					StatusText = $"Error: {ex.Message}";
+				}
 			}
 			catch (Exception ex) {
 				StatusText = $"Error: {ex.Message}";
 			}
+		}
+
+		private async Task HandleAccessDeniedAsync(string path) {
+			if (path.StartsWith(@"\\")) {
+				string shareRoot = GetShareRoot(path);
+				bool authenticated = false;
+
+				var creds = CredentialStore.GetCredentials(shareRoot);
+				if (creds != null) {
+					try {
+						NetworkHelper.ConnectToShare(shareRoot, creds.Value.Username, creds.Value.Password);
+						authenticated = true;
+					}
+					catch {
+						CredentialStore.RemoveCredentials(shareRoot);
+					}
+				}
+
+				if (!authenticated) {
+					await Application.Current.Dispatcher.InvokeAsync(() => {
+						var dialog = new CredentialsWindow { Owner = Application.Current.MainWindow };
+						if (dialog.ShowDialog() == true) {
+							try {
+								NetworkHelper.ConnectToShare(shareRoot, dialog.Username, dialog.Password);
+								if (dialog.RememberMe) {
+									CredentialStore.SaveCredentials(shareRoot, dialog.Username, dialog.Password);
+								}
+								authenticated = true;
+							}
+							catch (Exception ex) {
+								MessageBox.Show($"Connection failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+							}
+						}
+					});
+				}
+
+				if (authenticated) {
+					await LoadFilesAsync(path);
+					return;
+				}
+			}
+			StatusText = "Access Denied";
+		}
+
+		private static string GetShareRoot(string path) {
+			if (!path.StartsWith(@"\\")) return path;
+			var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+			if (parts.Length >= 2) {
+				return $@"\\{parts[0]}\{parts[1]}";
+			}
+			return path;
 		}
 
 		private static bool IsDownloadsFolder(string path) {

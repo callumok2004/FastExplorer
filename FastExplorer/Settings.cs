@@ -41,6 +41,7 @@ namespace FastExplorer {
 
 		public Dictionary<string, FolderViewState> FolderViewStates { get; set; } = [];
 		public List<string> PinnedFolders { get; set; } = [];
+		public List<string> NetworkShares { get; set; } = [];
 
 		public event PropertyChangedEventHandler? PropertyChanged;
 		protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) {

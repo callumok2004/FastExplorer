@@ -28,6 +28,8 @@ namespace FastExplorer.ViewModels {
 		public long Size { get; protected set; }
 		public DateTime DateModified { get; }
 		public virtual string OriginalLocation => "";
+		public virtual string Category => "Files";
+		public virtual bool IsNetworkShare => false;
 
 		public bool IsRenaming {
 			get => _isRenaming;
@@ -211,10 +213,23 @@ namespace FastExplorer.ViewModels {
 		}
 	}
 
-	public class FolderItemViewModel(DirectoryInfo info, bool poolName = true) : FileItemViewModel(info.Name, info.FullName, info.LastWriteTime, poolName) {
+	public class FolderItemViewModel : FileItemViewModel {
 		public override bool IsFolder => true;
 		public override string Type => "File folder";
 		public override string DisplaySize => "";
+
+		public FolderItemViewModel(DirectoryInfo info, bool poolName = true)
+			: base(info.Name, info.FullName, GetDateModifiedSafe(info), poolName) {
+		}
+
+		private static DateTime GetDateModifiedSafe(DirectoryInfo info) {
+			try {
+				return info.LastWriteTime;
+			}
+			catch {
+				return DateTime.MinValue;
+			}
+		}
 
 		protected override ImageSource? LoadIcon(int size) {
 			return IconHelper.GetFolderIcon(FullPath, false, size);
@@ -225,6 +240,7 @@ namespace FastExplorer.ViewModels {
 		public override bool IsFolder => true;
 		public override bool IsDrive => true;
 		public override string Type => "Local Disk";
+		public override string Category => "Devices and drives";
 
 		public override double PercentUsed { get; }
 		public override string FreeSpaceText { get; }
@@ -276,6 +292,35 @@ namespace FastExplorer.ViewModels {
 				return IconHelper.GetThumbnail(FullPath, size);
 			}
 			return base.LoadIcon(size);
+		}
+	}
+
+	public class NetworkShareItemViewModel : FolderItemViewModel {
+		public override string Type => "Network Connection";
+		public override string Category => "Network locations";
+		public override bool IsNetworkShare => true;
+
+		public override double PercentUsed { get; }
+		public override string FreeSpaceText { get; }
+
+		public NetworkShareItemViewModel(string path) : base(new DirectoryInfo(path), false) {
+			FreeSpaceText = "";
+			try {
+				if (ShellHelper.GetDiskFreeSpaceEx(path, out ulong freeBytesAvailable, out ulong totalNumberOfBytes, out _)) {
+					Size = (long)totalNumberOfBytes;
+					long free = (long)freeBytesAvailable;
+					double used = Size - free;
+					if (Size > 0) {
+						PercentUsed = used / Size * 100.0;
+						FreeSpaceText = $"{FormatSize(free)} free of {FormatSize(Size)}";
+					}
+				}
+			}
+			catch { }
+		}
+
+		protected override ImageSource? LoadIcon(int size) {
+			return IconHelper.GetFolderIcon(FullPath, false, size);
 		}
 	}
 }

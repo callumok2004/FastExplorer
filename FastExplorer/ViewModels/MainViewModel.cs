@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using FastExplorer.Helpers;
 
 namespace FastExplorer.ViewModels {
 	public class MainViewModel : ViewModelBase {
@@ -21,6 +22,8 @@ namespace FastExplorer.ViewModels {
 		public ICommand UnpinFromQuickAccessCommand { get; }
 		public ICommand MovePinUpCommand { get; }
 		public ICommand MovePinDownCommand { get; }
+		public ICommand AddNetworkShareCommand { get; }
+		public ICommand RemoveNetworkShareCommand { get; }
 
 		private string _systemStatus = "CPU: 0%   Mem: 0 MB";
 		public string SystemStatus {
@@ -98,8 +101,85 @@ namespace FastExplorer.ViewModels {
 			});
 			MovePinUpCommand = new RelayCommand(param => MovePin(param, -1));
 			MovePinDownCommand = new RelayCommand(param => MovePin(param, 1));
+			AddNetworkShareCommand = new RelayCommand(_ => AddNetworkShare());
+			RemoveNetworkShareCommand = new RelayCommand(param => RemoveNetworkShare(param));
 
 			AddTab();
+		}
+
+		private async void AddNetworkShare() {
+			var input = new InputWindow { Owner = Application.Current.MainWindow };
+			if (input.ShowDialog() == true) {
+				string path = input.ResponseText;
+				if (!string.IsNullOrWhiteSpace(path)) {
+					if (!path.StartsWith(@"\\")) {
+						path = @"\\" + path.TrimStart('\\');
+					}
+
+					if (AppSettings.Current.NetworkShares.Contains(path, StringComparer.OrdinalIgnoreCase)) {
+						MessageBox.Show("This network location is already added.", "FastExplorer", MessageBoxButton.OK, MessageBoxImage.Information);
+						return;
+					}
+
+					bool authenticated = false;
+					try {
+						await Task.Run(() => {
+							if (Directory.Exists(path)) {
+								authenticated = true;
+							}
+							else {
+								var creds = CredentialStore.GetCredentials(path);
+								if (creds != null) {
+									NetworkHelper.ConnectToShare(path, creds.Value.Username, creds.Value.Password);
+									if (Directory.Exists(path)) authenticated = true;
+								}
+							}
+						});
+					}
+					catch { }
+
+					if (!authenticated) {
+						var dialog = new CredentialsWindow { Owner = Application.Current.MainWindow };
+						if (dialog.ShowDialog() == true) {
+							try {
+								NetworkHelper.ConnectToShare(path, dialog.Username, dialog.Password);
+								if (dialog.RememberMe) {
+									CredentialStore.SaveCredentials(path, dialog.Username, dialog.Password);
+								}
+								authenticated = true;
+							}
+							catch (Exception ex) {
+								MessageBox.Show($"Connection failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+							}
+						}
+					}
+
+					if (authenticated) {
+						AppSettings.Current.NetworkShares.Add(path);
+						AppSettings.Save();
+						_ = LoadDrivesAsync();
+						if (SelectedTab?.CurrentPath == "This PC") {
+							SelectedTab.RefreshCommand.Execute(null);
+						}
+					}
+				}
+			}
+		}
+
+		private void RemoveNetworkShare(object? param) {
+			string? path = null;
+			if (param is DirectoryItemViewModel d) path = d.FullPath;
+			else if (param is NetworkShareItemViewModel n) path = n.FullPath;
+
+			if (path != null) {
+				if (AppSettings.Current.NetworkShares.Remove(path)) {
+					AppSettings.Save();
+					_ = LoadDrivesAsync();
+					if (SelectedTab?.CurrentPath == "This PC") {
+						SelectedTab.RefreshCommand.Execute(null);
+					}
+				}
+			}
 		}
 
 #if DEBUG
@@ -302,17 +382,26 @@ namespace FastExplorer.ViewModels {
 		}
 
 		private async Task LoadDrivesAsync() {
-			var drives = await Task.Run(() => {
-				var list = new List<DirectoryItemViewModel>();
-				foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
-					list.Add(new DirectoryItemViewModel(drive.RootDirectory.FullName, drive.Name, drive.VolumeLabel, true));
-				}
-				return list;
-			});
+			try {
+				var drives = await Task.Run(() => {
+					var list = new List<DirectoryItemViewModel>();
+					foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
+						list.Add(new DirectoryItemViewModel(drive.RootDirectory.FullName, drive.Name, drive.VolumeLabel, true));
+					}
+					foreach (var path in AppSettings.Current.NetworkShares) {
+						list.Add(new DirectoryItemViewModel(path, null, null, false, true));
+					}
+					return list;
+				});
 
-			foreach (var drive in drives) {
-				Drives.Add(drive);
+				Application.Current.Dispatcher.Invoke(() => {
+					Drives.Clear();
+					foreach (var drive in drives) {
+						Drives.Add(drive);
+					}
+				});
 			}
+			catch { }
 		}
 	}
 }

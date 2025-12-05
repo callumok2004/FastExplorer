@@ -319,6 +319,14 @@ namespace FastExplorer.Helpers {
 		[LibraryImport("shell32.dll", EntryPoint = "SHQueryRecycleBinW", StringMarshalling = StringMarshalling.Utf16)]
 		public static partial int SHQueryRecycleBin(string? pszRootPath, ref SHQUERYRBINFO pSHQueryRBInfo);
 
+		[LibraryImport("kernel32.dll", EntryPoint = "GetDiskFreeSpaceExW", StringMarshalling = StringMarshalling.Utf16)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		public static partial bool GetDiskFreeSpaceEx(
+			string lpDirectoryName,
+			out ulong lpFreeBytesAvailable,
+			out ulong lpTotalNumberOfBytes,
+			out ulong lpTotalNumberOfFreeBytes);
+
 		public static List<(string Path, string Name, bool IsFolder, long Size, DateTime DateModified, string Type, string OriginalLocation)> EnumerateShellFolder(string parsingName) {
 			var list = new List<(string Path, string Name, bool IsFolder, long Size, DateTime DateModified, string Type, string OriginalLocation)>();
 			try {

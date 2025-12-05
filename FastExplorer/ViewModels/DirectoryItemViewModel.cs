@@ -15,6 +15,7 @@ namespace FastExplorer.ViewModels {
 		public string Name { get; }
 		public ImageSource? Icon { get; }
 		public bool IsDrive { get; }
+		public bool IsNetworkShare { get; }
 		public double PercentUsed { get; }
 
 		public bool IsDropTarget {
@@ -22,24 +23,37 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _isDropTarget, value);
 		}
 
-		public DirectoryItemViewModel(string fullPath, string? name = null, string? label = null, bool isDrive = false) {
+		public DirectoryItemViewModel(string fullPath, string? name = null, string? label = null, bool isDrive = false, bool isNetworkShare = false) {
 			FullPath = fullPath;
 			if (!string.IsNullOrEmpty(label)) {
 				Name = !string.IsNullOrEmpty(name) ? $"{label} ({name})" : label;
 			}
 			else {
 				if (fullPath == "This PC") Name = "This PC";
-				else Name = name ?? new DirectoryInfo(fullPath).Name;
+				else {
+					if (isNetworkShare) {
+						Name = fullPath.TrimEnd('\\').Split('\\').LastOrDefault() ?? fullPath;
+					}
+					else {
+						Name = name ?? new DirectoryInfo(fullPath).Name;
+					}
+				}
 			}
 
 			if (fullPath == "This PC") {
 				Icon = IconHelper.GetFolderIcon(Environment.GetFolderPath(Environment.SpecialFolder.MyComputer), false, 16);
 			}
 			else {
-				Icon = IconHelper.GetFolderIcon(fullPath, false, 16);
+				if (isNetworkShare) {
+					Icon = IconHelper.GetFolderIcon("::{208D2C60-3AEA-1069-A2D7-08002B30309D}", false, 16);
+				}
+				else {
+					Icon = IconHelper.GetFolderIcon(fullPath, false, 16);
+				}
 			}
 
 			IsDrive = isDrive;
+			IsNetworkShare = isNetworkShare;
 
 			if (IsDrive) {
 				try {
@@ -55,9 +69,15 @@ namespace FastExplorer.ViewModels {
 
 			_subDirectories = [];
 
-			if (fullPath != "This PC" && !fullPath.StartsWith("::") && !fullPath.StartsWith("shell:") && HasSubDirectories(fullPath)) {
-				_subDirectories.Add(new DirectoryItemViewModel("dummy"));
-				_hasDummyChild = true;
+			if (fullPath != "This PC" && !fullPath.StartsWith("::") && !fullPath.StartsWith("shell:")) {
+				if (isNetworkShare) {
+					_subDirectories.Add(new DirectoryItemViewModel("dummy"));
+					_hasDummyChild = true;
+				}
+				else if (HasSubDirectories(fullPath)) {
+					_subDirectories.Add(new DirectoryItemViewModel("dummy"));
+					_hasDummyChild = true;
+				}
 			}
 		}
 
@@ -97,12 +117,15 @@ namespace FastExplorer.ViewModels {
 			try {
 				var dirs = await Task.Run(() => {
 					var list = new List<DirectoryItemViewModel>();
-					var info = new DirectoryInfo(FullPath);
-					foreach (var dir in info.GetDirectories()) {
-						if ((dir.Attributes & FileAttributes.Hidden) != FileAttributes.Hidden) {
-							list.Add(new DirectoryItemViewModel(dir.FullName));
+					try {
+						var info = new DirectoryInfo(FullPath);
+						foreach (var dir in info.GetDirectories()) {
+							if ((dir.Attributes & FileAttributes.Hidden) != FileAttributes.Hidden) {
+								list.Add(new DirectoryItemViewModel(dir.FullName));
+							}
 						}
 					}
+					catch { }
 					return list;
 				});
 

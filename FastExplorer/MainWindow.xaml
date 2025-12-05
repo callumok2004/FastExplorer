@@ -773,6 +773,15 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
+                Command="{Binding Data.DataContext.RemoveNetworkShareCommand, Source={StaticResource WindowProxy}}"
+                CommandParameter="{Binding}"
+                Header="Remove network location"
+                Visibility="{Binding IsNetworkShare, Converter={StaticResource BoolToVis}}">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74D;" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
                 Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                 CommandParameter="{Binding}"
                 Header="Copy as path">
