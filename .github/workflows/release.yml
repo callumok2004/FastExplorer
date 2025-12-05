@@ -1,0 +1,42 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    env:
+      Solution_Name: FastExplorer.slnx
+      Project_Path: FastExplorer/FastExplorer.csproj
+      Configuration: Release
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore
+      run: dotnet restore ${{ env.Solution_Name }}
+
+    - name: Publish
+      run: dotnet publish ${{ env.Project_Path }} --configuration ${{ env.Configuration }} -r win-x64 -p:PublishSingleFile=true --self-contained true --output ./publish
+
+    - name: Create GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG_NAME: ${{ inputs.tag_name }}
+      run: |
+        gh release create "$env:TAG_NAME" ./publish/FastExplorer.exe --title "Release $env:TAG_NAME" --generate-notes
