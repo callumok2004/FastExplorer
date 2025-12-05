@@ -110,5 +110,21 @@ namespace FastExplorer.ViewModels {
 			}
 			catch { }
 		}
+
+		private List<ShellContextMenu.ShellMenuItem>? _shellMenuItems;
+		public IEnumerable<ShellContextMenu.ShellMenuItem> ShellMenuItems => _shellMenuItems ?? Enumerable.Empty<ShellContextMenu.ShellMenuItem>();
+
+		public void LoadShellMenu() {
+			if (_shellMenuItems != null && _shellMenuItems.Count > 0) return;
+
+			try {
+				_shellMenuItems ??= [];
+				var items = ShellContextMenu.GetContextMenuItems([FullPath]);
+				foreach (var item in items) {
+					_shellMenuItems.Add(item);
+				}
+			}
+			catch { }
+		}
 	}
 }

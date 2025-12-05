@@ -179,7 +179,7 @@ namespace FastExplorer.ViewModels {
 
 			try {
 				_shellMenuItems ??= [];
-				var items = ShellContextMenu.GetContextMenuItems([new FileInfo(FullPath)]);
+				var items = ShellContextMenu.GetContextMenuItems([FullPath]);
 				foreach (var item in items) {
 					_shellMenuItems.Add(item);
 				}

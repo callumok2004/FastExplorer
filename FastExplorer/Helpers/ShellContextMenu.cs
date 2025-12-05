@@ -206,31 +206,37 @@ namespace FastExplorer.Helpers {
 			return items;
 		}
 
-		public static List<ShellMenuItem> GetContextMenuItems(FileInfo[] files) {
+		public static List<ShellMenuItem> GetContextMenuItems(string[] paths) {
 			var items = new List<ShellMenuItem>();
-			if (files == null || files.Length == 0) return items;
+			if (paths == null || paths.Length == 0) return items;
 
 			try {
 				_ = SHGetDesktopFolder(out IShellFolder desktopFolder);
 
-				IntPtr[] pidls = new IntPtr[files.Length];
+				IntPtr[] pidls = new IntPtr[paths.Length];
 				IShellFolder? parentFolder = null;
 
-				var parentDir = files[0].DirectoryName;
-				if (string.IsNullOrEmpty(parentDir)) return items;
+				var firstPath = paths[0];
+				var parentDir = Path.GetDirectoryName(firstPath);
 
-				uint pdwAttributes = 0;
-
-				desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out IntPtr parentPidl, ref pdwAttributes);
-				desktopFolder.BindToObject(parentPidl, IntPtr.Zero, typeof(IShellFolder).GUID, out IntPtr parentFolderPtr);
-				
-				// Convert IntPtr to IShellFolder
 				var strategy = new StrategyBasedComWrappers();
-				parentFolder = (IShellFolder)strategy.GetOrCreateObjectForComInstance(parentFolderPtr, CreateObjectFlags.None);
 
-				for (int i = 0; i < files.Length; i++) {
+				if (string.IsNullOrEmpty(parentDir)) {
+					parentFolder = desktopFolder;
+				}
+				else {
+					uint pdwAttributes = 0;
+					desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out IntPtr parentPidl, ref pdwAttributes);
+					desktopFolder.BindToObject(parentPidl, IntPtr.Zero, typeof(IShellFolder).GUID, out IntPtr parentFolderPtr);
+					parentFolder = (IShellFolder)strategy.GetOrCreateObjectForComInstance(parentFolderPtr, CreateObjectFlags.None);
+				}
+
+				for (int i = 0; i < paths.Length; i++) {
 					uint attr = 0;
-					parentFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, files[i].Name, out uint eaten, out pidls[i], ref attr);
+					string name = Path.GetFileName(paths[i]);
+					if (string.IsNullOrEmpty(name) || parentFolder == desktopFolder) name = paths[i];
+
+					parentFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, name, out uint eaten, out pidls[i], ref attr);
 				}
 
 				IContextMenu contextMenu;
@@ -255,29 +261,36 @@ namespace FastExplorer.Helpers {
 			return items;
 		}
 
-		public static void ShowContextMenu(FileInfo[] files, Point point) {
-			if (files == null || files.Length == 0) return;
+		public static void ShowContextMenu(string[] paths, Point point) {
+			if (paths == null || paths.Length == 0) return;
 
 			try {
 				_ = SHGetDesktopFolder(out IShellFolder desktopFolder);
 
-				IntPtr[] pidls = new IntPtr[files.Length];
+				IntPtr[] pidls = new IntPtr[paths.Length];
 				IShellFolder? parentFolder = null;
 
-				var parentDir = files[0].DirectoryName;
-				if (string.IsNullOrEmpty(parentDir)) return;
+				var firstPath = paths[0];
+				var parentDir = Path.GetDirectoryName(firstPath);
 
-				uint pdwAttributes = 0;
-
-				desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out IntPtr parentPidl, ref pdwAttributes);
-				desktopFolder.BindToObject(parentPidl, IntPtr.Zero, typeof(IShellFolder).GUID, out IntPtr parentFolderPtr);
-				
 				var strategy = new StrategyBasedComWrappers();
-				parentFolder = (IShellFolder)strategy.GetOrCreateObjectForComInstance(parentFolderPtr, CreateObjectFlags.None);
 
-				for (int i = 0; i < files.Length; i++) {
+				if (string.IsNullOrEmpty(parentDir)) {
+					parentFolder = desktopFolder;
+				}
+				else {
+					uint pdwAttributes = 0;
+					desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out IntPtr parentPidl, ref pdwAttributes);
+					desktopFolder.BindToObject(parentPidl, IntPtr.Zero, typeof(IShellFolder).GUID, out IntPtr parentFolderPtr);
+					parentFolder = (IShellFolder)strategy.GetOrCreateObjectForComInstance(parentFolderPtr, CreateObjectFlags.None);
+				}
+
+				for (int i = 0; i < paths.Length; i++) {
 					uint attr = 0;
-					parentFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, files[i].Name, out uint eaten, out pidls[i], ref attr);
+					string name = Path.GetFileName(paths[i]);
+					if (string.IsNullOrEmpty(name) || parentFolder == desktopFolder) name = paths[i];
+
+					parentFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, name, out uint eaten, out pidls[i], ref attr);
 				}
 
 				IContextMenu contextMenu;

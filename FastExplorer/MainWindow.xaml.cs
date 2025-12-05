@@ -21,7 +21,7 @@ namespace FastExplorer {
 			ViewMoreCommand = new RelayCommand(param => {
 				if (param is FileItemViewModel fileItem) {
 					var point = PointToScreen(Mouse.GetPosition(this));
-					ShowShellContextMenu(fileItem, point);
+					ShowShellContextMenu(fileItem.FullPath, point);
 				}
 			});
 
@@ -247,6 +247,29 @@ namespace FastExplorer {
 			}
 		}
 
+		private void ListView_MouseRightButtonUp(object sender, MouseButtonEventArgs e) {
+			if (sender is ListView lv) {
+				var hit = VisualTreeHelper.HitTest(lv, e.GetPosition(lv));
+				var item = FindAncestor<ListViewItem>(hit?.VisualHit);
+				if (item != null) return;
+
+				e.Handled = true;
+				var point = PointToScreen(e.GetPosition(this));
+
+				if (DataContext is MainViewModel vm && vm.SelectedTab != null) {
+					string path = vm.SelectedTab.CurrentPath;
+					if (!string.IsNullOrEmpty(path)) {
+						if (path == "This PC") {
+							ShellContextMenu.ShowContextMenu(["::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"], point);
+						}
+						else if (Directory.Exists(path)) {
+							ShellContextMenu.ShowContextMenu([path], point);
+						}
+					}
+				}
+			}
+		}
+
 		private FileItemViewModel? _lastDropTarget;
 
 		private void FileListView_DragOver(object sender, DragEventArgs e) {
@@ -360,7 +383,7 @@ namespace FastExplorer {
 		private void ViewMore_Click(object sender, RoutedEventArgs e) {
 			if (sender is MenuItem menuItem && menuItem.DataContext is FileItemViewModel fileItem) {
 				var point = PointToScreen(Mouse.GetPosition(this));
-				ShowShellContextMenu(fileItem, point);
+				ShowShellContextMenu(fileItem.FullPath, point);
 			}
 		}
 
@@ -377,6 +400,12 @@ namespace FastExplorer {
 					_ = Dispatcher.BeginInvoke(new Action(() => {
 						fileItem.LoadShellMenu();
 						UpdateContextMenu(menu, fileItem.ShellMenuItems);
+					}), System.Windows.Threading.DispatcherPriority.Background);
+				}
+				else if (menu.DataContext is DirectoryItemViewModel dirItem) {
+					_ = Dispatcher.BeginInvoke(new Action(() => {
+						dirItem.LoadShellMenu();
+						UpdateContextMenu(menu, dirItem.ShellMenuItems);
 					}), System.Windows.Threading.DispatcherPriority.Background);
 				}
 			}
@@ -429,13 +458,16 @@ namespace FastExplorer {
 					Icon = new TextBlock { Text = "\uE712", FontFamily = new FontFamily("Segoe Fluent Icons") }
 				};
 				showMore.Click += (s, e) => {
-					if (menu.DataContext is FileItemViewModel fileItem) {
-						menu.IsOpen = false;
-						_ = Dispatcher.BeginInvoke(new Action(() => {
-							_ = GetCursorPos(out POINT p);
-							ShowShellContextMenu(fileItem, new Point(p.X, p.Y));
-						}), System.Windows.Threading.DispatcherPriority.Input);
-					}
+					menu.IsOpen = false;
+					_ = Dispatcher.BeginInvoke(new Action(() => {
+						_ = GetCursorPos(out POINT p);
+						if (menu.DataContext is FileItemViewModel fileItem) {
+							ShowShellContextMenu(fileItem.FullPath, new Point(p.X, p.Y));
+						}
+						else if (menu.DataContext is DirectoryItemViewModel dirItem) {
+							ShowShellContextMenu(dirItem.FullPath, new Point(p.X, p.Y));
+						}
+					}), System.Windows.Threading.DispatcherPriority.Input);
 				};
 				_ = menu.Items.Add(showMore);
 			}
@@ -469,10 +501,9 @@ namespace FastExplorer {
 			return menuItem;
 		}
 
-		private static void ShowShellContextMenu(FileItemViewModel fileItem, Point point) {
+		private static void ShowShellContextMenu(string path, Point point) {
 			try {
-				var fileInfo = new FileInfo(fileItem.FullPath);
-				ShellContextMenu.ShowContextMenu([fileInfo], point);
+				ShellContextMenu.ShowContextMenu([path], point);
 			}
 			catch { }
 		}
@@ -772,6 +803,28 @@ namespace FastExplorer {
 				if (DataContext is MainViewModel vm && vm.SelectedTab != null) {
 					vm.SelectedTab.NavigateTo(path);
 					vm.SelectedTab.IsPathEditing = false;
+				}
+			}
+		}
+
+		private void TreeView_MouseRightButtonUp(object sender, MouseButtonEventArgs e) {
+			var treeViewItem = FindAncestor<TreeViewItem>((DependencyObject)e.OriginalSource);
+			if (treeViewItem != null) return;
+
+			if (sender is TreeView tv) {
+				e.Handled = true;
+				var point = PointToScreen(e.GetPosition(this));
+
+				if (DataContext is MainViewModel vm) {
+					if (tv.ItemsSource == vm.QuickAccess) {
+						var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+						if (Directory.Exists(userProfile)) {
+							ShellContextMenu.ShowContextMenu([userProfile], point);
+						}
+					}
+					else if (tv.ItemsSource == vm.Drives) {
+						ShellContextMenu.ShowContextMenu(["::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"], point);
+					}
 				}
 			}
 		}

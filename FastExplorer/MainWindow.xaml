@@ -1644,6 +1644,7 @@
                             Drop="TreeView_Drop"
                             ItemsSource="{Binding QuickAccess}"
                             MouseMove="TreeView_MouseMove"
+                            MouseRightButtonUp="TreeView_MouseRightButtonUp"
                             PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
                             PreviewMouseWheel="TreeView_PreviewMouseWheel"
                             SelectedItemChanged="TreeView_SelectedItemChanged">
@@ -1654,7 +1655,9 @@
                                         Background="Transparent"
                                         Orientation="Horizontal">
                                         <StackPanel.ContextMenu>
-                                            <ContextMenu>
+                                            <ContextMenu
+                                                Opened="ContextMenu_Opened"
+                                                Style="{StaticResource DefaultContextMenuStyle}">
                                                 <MenuItem
                                                     Command="{Binding Data.DataContext.SelectedTab.NavigateCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding FullPath}"
@@ -1671,7 +1674,7 @@
                                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" />
                                                     </MenuItem.Icon>
                                                 </MenuItem>
-                                                <Separator />
+                                                <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
                                                 <MenuItem
                                                     Command="{Binding Data.DataContext.MovePinUpCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
@@ -1688,7 +1691,7 @@
                                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74B;" />
                                                     </MenuItem.Icon>
                                                 </MenuItem>
-                                                <Separator />
+                                                <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
                                                 <MenuItem
                                                     Command="{Binding Data.DataContext.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
@@ -1697,7 +1700,7 @@
                                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE77A;" />
                                                     </MenuItem.Icon>
                                                 </MenuItem>
-                                                <Separator />
+                                                <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
                                                 <MenuItem
                                                     Command="{Binding Data.DataContext.SelectedTab.PropertiesCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
@@ -1757,6 +1760,7 @@
                             DragOver="TreeView_DragOver"
                             Drop="TreeView_Drop"
                             ItemsSource="{Binding Drives}"
+                            MouseRightButtonUp="TreeView_MouseRightButtonUp"
                             PreviewMouseWheel="TreeView_PreviewMouseWheel"
                             SelectedItemChanged="TreeView_SelectedItemChanged">
                             <TreeView.ItemTemplate>
@@ -1829,6 +1833,7 @@
                         MouseDoubleClick="ListView_MouseDoubleClick"
                         MouseMove="ListView_MouseMove"
                         MouseUp="ListView_MouseUp"
+                        MouseRightButtonUp="ListView_MouseRightButtonUp"
                         PreviewMouseDown="ListView_MouseDown"
                         SelectionChanged="ListView_SelectionChanged"
                         SelectionMode="Extended">

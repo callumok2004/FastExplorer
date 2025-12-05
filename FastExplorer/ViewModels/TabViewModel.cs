@@ -605,8 +605,10 @@ namespace FastExplorer.ViewModels {
 				}
 				else {
 					try {
-						var psi = new ProcessStartInfo(fileItem.FullPath) { UseShellExecute = true };
-						psi.WorkingDirectory = Path.GetDirectoryName(fileItem.FullPath);
+						var psi = new ProcessStartInfo(fileItem.FullPath) {
+							UseShellExecute = true,
+							WorkingDirectory = Path.GetDirectoryName(fileItem.FullPath)
+						};
 						_ = Process.Start(psi);
 					}
 					catch (Exception ex) {
