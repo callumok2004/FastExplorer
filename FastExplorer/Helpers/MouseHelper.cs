@@ -2,12 +2,11 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 
-#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 namespace FastExplorer.Helpers {
-	public static class MouseHelper {
-		[DllImport("user32.dll")]
+	public static partial class MouseHelper {
+		[LibraryImport("user32.dll")]
 		[return: MarshalAs(UnmanagedType.Bool)]
-		private static extern bool GetCursorPos(ref Win32Point pt);
+		private static partial bool GetCursorPos(ref Win32Point pt);
 
 		[StructLayout(LayoutKind.Sequential)]
 		private struct Win32Point {
@@ -22,4 +21,3 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
-#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

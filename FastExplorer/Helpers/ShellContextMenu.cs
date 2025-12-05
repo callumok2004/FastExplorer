@@ -1,62 +1,61 @@
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
+using System.Runtime.InteropServices.Marshalling;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Interop;
 using System.Windows;
 
-#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
-#pragma warning disable SYSLIB1096 // Convert to 'GeneratedComInterface'
 namespace FastExplorer.Helpers {
-	public class ShellContextMenu {
+	public partial class ShellContextMenu {
 		#region Interop
 
-		[DllImport("shell32.dll", CharSet = CharSet.Auto)]
-		private static extern int SHGetDesktopFolder(out IShellFolder ppshf);
+		[LibraryImport("shell32.dll")]
+		private static partial int SHGetDesktopFolder(out IShellFolder ppshf);
 
-		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		private static extern IntPtr CreatePopupMenu();
+		[LibraryImport("user32.dll")]
+		private static partial IntPtr CreatePopupMenu();
 
-		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		private static extern bool DestroyMenu(IntPtr hMenu);
+		[LibraryImport("user32.dll")]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static partial bool DestroyMenu(IntPtr hMenu);
 
-		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		private static extern int TrackPopupMenuEx(IntPtr hmenu, uint fuFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
+		[LibraryImport("user32.dll")]
+		private static partial int TrackPopupMenuEx(IntPtr hmenu, uint fuFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
 
-		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		private static extern IntPtr GetForegroundWindow();
+		[LibraryImport("user32.dll")]
+		private static partial IntPtr GetForegroundWindow();
 
-		[ComImport]
-		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		[GeneratedComInterface]
 		[Guid("000214E6-0000-0000-C000-000000000046")]
-		public interface IShellFolder {
+		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		internal partial interface IShellFolder {
 			void ParseDisplayName(IntPtr hwnd, IntPtr pbc, [MarshalAs(UnmanagedType.LPWStr)] string pszDisplayName, out uint pchEaten, out IntPtr ppidl, ref uint pdwAttributes);
 			void EnumObjects(IntPtr hwnd, int grfFlags, out IntPtr ppenumIDList);
-			void BindToObject(IntPtr pidl, IntPtr pbc, [In] ref Guid riid, out IntPtr ppv);
-			void BindToStorage(IntPtr pidl, IntPtr pbc, [In] ref Guid riid, out IntPtr ppv);
+			void BindToObject(IntPtr pidl, IntPtr pbc, in Guid riid, out IntPtr ppv);
+			void BindToStorage(IntPtr pidl, IntPtr pbc, in Guid riid, out IntPtr ppv);
 			void CompareIDs(IntPtr lParam, IntPtr pidl1, IntPtr pidl2);
-			void CreateViewObject(IntPtr hwndOwner, [In] ref Guid riid, out IntPtr ppv);
-			void GetAttributesOf(uint cidl, [MarshalAs(UnmanagedType.LPArray)] IntPtr[] apidl, ref uint rgfInOut);
-			void GetUIObjectOf(IntPtr hwndOwner, uint cidl, [MarshalAs(UnmanagedType.LPArray)] IntPtr[] apidl, [In] ref Guid riid, ref uint rgfReserved, out IntPtr ppv);
+			void CreateViewObject(IntPtr hwndOwner, in Guid riid, out IntPtr ppv);
+			void GetAttributesOf(uint cidl, IntPtr apidl, ref uint rgfInOut);
+			void GetUIObjectOf(IntPtr hwndOwner, uint cidl, IntPtr apidl, in Guid riid, ref uint rgfReserved, out IntPtr ppv);
 			void GetDisplayNameOf(IntPtr pidl, uint uFlags, IntPtr pName);
 			void SetNameOf(IntPtr hwnd, IntPtr pidl, [MarshalAs(UnmanagedType.LPWStr)] string pszName, uint uFlags, out IntPtr ppidlOut);
 		}
 
-		[ComImport]
-		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		[GeneratedComInterface]
 		[Guid("000214e4-0000-0000-c000-000000000046")]
-		public interface IContextMenu {
+		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		internal partial interface IContextMenu {
 			[PreserveSig]
 			int QueryContextMenu(IntPtr hmenu, uint indexMenu, uint idCmdFirst, uint idCmdLast, uint uFlags);
 			[PreserveSig]
 			int InvokeCommand(ref CMINVOKECOMMANDINFO pici);
 			[PreserveSig]
-			int GetCommandString(uint idCmd, uint uType, ref uint pwReserved, StringBuilder pszName, uint cchMax);
+			int GetCommandString(uint idCmd, uint uType, ref uint pwReserved, IntPtr pszName, uint cchMax);
 		}
 
 		[StructLayout(LayoutKind.Sequential)]
-		public struct CMINVOKECOMMANDINFO {
+		internal struct CMINVOKECOMMANDINFO {
 			public int cbSize;
 			public int fMask;
 			public IntPtr hwnd;
@@ -68,14 +67,15 @@ namespace FastExplorer.Helpers {
 			public IntPtr hIcon;
 		}
 
-		[DllImport("user32.dll")]
-		private static extern int GetMenuItemCount(IntPtr hMenu);
+		[LibraryImport("user32.dll")]
+		private static partial int GetMenuItemCount(IntPtr hMenu);
 
-		[DllImport("user32.dll", CharSet = CharSet.Unicode)]
-		private static extern bool GetMenuItemInfo(IntPtr hMenu, uint uItem, bool fByPosition, ref MENUITEMINFO lpmii);
+		[LibraryImport("user32.dll", EntryPoint = "GetMenuItemInfoW", StringMarshalling = StringMarshalling.Utf16)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static partial bool GetMenuItemInfo(IntPtr hMenu, uint uItem, [MarshalAs(UnmanagedType.Bool)] bool fByPosition, ref MENUITEMINFO lpmii);
 
 		[StructLayout(LayoutKind.Sequential)]
-		public struct MENUITEMINFO {
+		internal struct MENUITEMINFO {
 			public uint cbSize;
 			public uint fMask;
 			public uint fType;
@@ -221,9 +221,12 @@ namespace FastExplorer.Helpers {
 
 				uint pdwAttributes = 0;
 
-				desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out nint parentPidl, ref pdwAttributes);
+				desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out IntPtr parentPidl, ref pdwAttributes);
 				desktopFolder.BindToObject(parentPidl, IntPtr.Zero, typeof(IShellFolder).GUID, out IntPtr parentFolderPtr);
-				parentFolder = (IShellFolder)Marshal.GetTypedObjectForIUnknown(parentFolderPtr, typeof(IShellFolder));
+				
+				// Convert IntPtr to IShellFolder
+				var strategy = new StrategyBasedComWrappers();
+				parentFolder = (IShellFolder)strategy.GetOrCreateObjectForComInstance(parentFolderPtr, CreateObjectFlags.None);
 
 				for (int i = 0; i < files.Length; i++) {
 					uint attr = 0;
@@ -231,8 +234,13 @@ namespace FastExplorer.Helpers {
 				}
 
 				IContextMenu contextMenu;
-				parentFolder.GetUIObjectOf(IntPtr.Zero, (uint)pidls.Length, pidls, typeof(IContextMenu).GUID, 0, out IntPtr contextMenuPtr);
-				contextMenu = (IContextMenu)Marshal.GetTypedObjectForIUnknown(contextMenuPtr, typeof(IContextMenu));
+				unsafe {
+					fixed (IntPtr* pPidls = pidls) {
+						uint rgfReserved = 0;
+						parentFolder.GetUIObjectOf(IntPtr.Zero, (uint)pidls.Length, (IntPtr)pPidls, typeof(IContextMenu).GUID, ref rgfReserved, out IntPtr contextMenuPtr);
+						contextMenu = (IContextMenu)strategy.GetOrCreateObjectForComInstance(contextMenuPtr, CreateObjectFlags.None);
+					}
+				}
 
 				IntPtr hMenu = CreatePopupMenu();
 				_ = contextMenu.QueryContextMenu(hMenu, 0, 1, 0x7FFF, 0);
@@ -240,8 +248,7 @@ namespace FastExplorer.Helpers {
 				items = GetMenuItems(hMenu, contextMenu, true);
 
 				_ = DestroyMenu(hMenu);
-				if (parentFolder != null) _ = Marshal.ReleaseComObject(parentFolder);
-				_ = Marshal.ReleaseComObject(desktopFolder);
+				// ReleaseComObject is not needed for StrategyBasedComWrappers, just let them go out of scope
 			}
 			catch { }
 
@@ -262,9 +269,11 @@ namespace FastExplorer.Helpers {
 
 				uint pdwAttributes = 0;
 
-				desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out nint parentPidl, ref pdwAttributes);
+				desktopFolder.ParseDisplayName(IntPtr.Zero, IntPtr.Zero, parentDir, out uint pchEaten, out IntPtr parentPidl, ref pdwAttributes);
 				desktopFolder.BindToObject(parentPidl, IntPtr.Zero, typeof(IShellFolder).GUID, out IntPtr parentFolderPtr);
-				parentFolder = (IShellFolder)Marshal.GetTypedObjectForIUnknown(parentFolderPtr, typeof(IShellFolder));
+				
+				var strategy = new StrategyBasedComWrappers();
+				parentFolder = (IShellFolder)strategy.GetOrCreateObjectForComInstance(parentFolderPtr, CreateObjectFlags.None);
 
 				for (int i = 0; i < files.Length; i++) {
 					uint attr = 0;
@@ -272,8 +281,13 @@ namespace FastExplorer.Helpers {
 				}
 
 				IContextMenu contextMenu;
-				parentFolder.GetUIObjectOf(IntPtr.Zero, (uint)pidls.Length, pidls, typeof(IContextMenu).GUID, 0, out IntPtr contextMenuPtr);
-				contextMenu = (IContextMenu)Marshal.GetTypedObjectForIUnknown(contextMenuPtr, typeof(IContextMenu));
+				unsafe {
+					fixed (IntPtr* pPidls = pidls) {
+						uint rgfReserved = 0;
+						parentFolder.GetUIObjectOf(IntPtr.Zero, (uint)pidls.Length, (IntPtr)pPidls, typeof(IContextMenu).GUID, ref rgfReserved, out IntPtr contextMenuPtr);
+						contextMenu = (IContextMenu)strategy.GetOrCreateObjectForComInstance(contextMenuPtr, CreateObjectFlags.None);
+					}
+				}
 
 				IntPtr hMenu = CreatePopupMenu();
 				_ = contextMenu.QueryContextMenu(hMenu, 0, 1, 0x7FFF, 0);
@@ -290,9 +304,6 @@ namespace FastExplorer.Helpers {
 				}
 
 				_ = DestroyMenu(hMenu);
-				_ = Marshal.ReleaseComObject(contextMenu);
-				if (parentFolder != null) _ = Marshal.ReleaseComObject(parentFolder);
-				_ = Marshal.ReleaseComObject(desktopFolder);
 			}
 			catch (Exception ex) {
 				_ = System.Windows.MessageBox.Show("Error showing context menu: " + ex.Message);
@@ -300,5 +311,3 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
-#pragma warning restore SYSLIB1096 // Convert to 'GeneratedComInterface'
-#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

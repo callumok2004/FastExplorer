@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using FastExplorer.Helpers;
 
 namespace FastExplorer.ViewModels {
 	public class MainViewModel : ViewModelBase {

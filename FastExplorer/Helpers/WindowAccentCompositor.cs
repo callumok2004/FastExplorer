@@ -1,12 +1,9 @@
-using System;
 using System.Runtime.InteropServices;
 
 namespace FastExplorer.Helpers {
-	public static class WindowAccentCompositor {
-		[DllImport("user32.dll")]
-#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
-		internal static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
-#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+	public static partial class WindowAccentCompositor {
+		[LibraryImport("user32.dll")]
+		internal static partial int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
 
 		[StructLayout(LayoutKind.Sequential)]
 		internal struct WindowCompositionAttributeData {

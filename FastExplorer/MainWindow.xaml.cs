@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -11,7 +10,6 @@ using System.Windows.Media;
 using FastExplorer.ViewModels;
 using FastExplorer.Helpers;
 
-#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 namespace FastExplorer {
 	public partial class MainWindow : Window {
 		public ICommand ViewMoreCommand { get; }
@@ -70,18 +68,18 @@ namespace FastExplorer {
 			};
 		}
 
-		[DllImport("dwmapi.dll")]
-		private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+		[LibraryImport("dwmapi.dll")]
+		private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
 		private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
 		private const int DWMWCP_ROUND = 2;
 
-		[DllImport("uxtheme.dll", EntryPoint = "#135")]
-		private static extern int SetPreferredAppMode(int preferredAppMode);
+		[LibraryImport("uxtheme.dll", EntryPoint = "#135")]
+		private static partial int SetPreferredAppMode(int preferredAppMode);
 
-		[DllImport("user32.dll")]
+		[LibraryImport("user32.dll")]
 		[return: MarshalAs(UnmanagedType.Bool)]
-		private static extern bool GetCursorPos(out POINT lpPoint);
+		private static partial bool GetCursorPos(out POINT lpPoint);
 
 		[StructLayout(LayoutKind.Sequential)]
 		public struct POINT {
@@ -779,4 +777,3 @@ namespace FastExplorer {
 		}
 	}
 }
-#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

@@ -1,18 +1,13 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Runtime.InteropServices.Marshalling;
 
-#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
-#pragma warning disable SYSLIB1096 // Convert to 'GeneratedComInterface'
 namespace FastExplorer.Helpers {
-	public static class IconHelper {
+	public static partial class IconHelper {
 		private static readonly Dictionary<string, ImageSource> _iconCache = [];
 		private static readonly Lock _cacheLock = new();
 		private const int MaxCacheSize = 500;
@@ -30,7 +25,9 @@ namespace FastExplorer.Helpers {
 			SHFILEINFO shinfo = new();
 			uint flags = SHGFI_TYPENAME | SHGFI_USEFILEATTRIBUTES;
 			if (SHGetFileInfo(extension, FILE_ATTRIBUTE_NORMAL, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags) != IntPtr.Zero) {
-				return shinfo.szTypeName;
+				unsafe {
+					return new string(shinfo.szTypeName);
+				}
 			}
 			return string.Empty;
 		}
@@ -101,15 +98,13 @@ namespace FastExplorer.Helpers {
 			return icon;
 		}
 
-		[StructLayout(LayoutKind.Sequential)]
-		private struct SHFILEINFO {
+		[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+		private unsafe struct SHFILEINFO {
 			public IntPtr hIcon;
 			public int iIcon;
 			public uint dwAttributes;
-			[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-			public string szDisplayName;
-			[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
-			public string szTypeName;
+			public fixed char szDisplayName[260];
+			public fixed char szTypeName[80];
 		};
 
 		private const uint SHGFI_ICON = 0x100;
@@ -121,19 +116,20 @@ namespace FastExplorer.Helpers {
 		private const uint FILE_ATTRIBUTE_NORMAL = 0x80;
 		private const uint FILE_ATTRIBUTE_DIRECTORY = 0x10;
 
-		[DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-		private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+		[LibraryImport("shell32.dll", EntryPoint = "SHGetFileInfoW", StringMarshalling = StringMarshalling.Utf16)]
+		private static partial IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
 
-		[DllImport("user32.dll", SetLastError = true)]
-		private static extern bool DestroyIcon(IntPtr hIcon);
+		[LibraryImport("user32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static partial bool DestroyIcon(IntPtr hIcon);
 
-		[DllImport("shell32.dll", EntryPoint = "#727")]
-		private static extern int SHGetImageList(int iImageList, ref Guid riid, out IImageList ppv);
+		[LibraryImport("shell32.dll", EntryPoint = "#727")]
+		private static partial int SHGetImageList(int iImageList, ref Guid riid, out IImageList ppv);
 
-		[ComImportAttribute()]
-		[GuidAttribute("46EB5926-582E-4017-9FDF-E8998DAA0950")]
-		[InterfaceTypeAttribute(ComInterfaceType.InterfaceIsIUnknown)]
-		private interface IImageList {
+		[GeneratedComInterface]
+		[Guid("46EB5926-582E-4017-9FDF-E8998DAA0950")]
+		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		internal partial interface IImageList {
 			[PreserveSig]
 			int Add(IntPtr hbmImage, IntPtr hbmMask, ref int pi);
 			[PreserveSig]
@@ -153,7 +149,7 @@ namespace FastExplorer.Helpers {
 		}
 
 		[StructLayout(LayoutKind.Sequential)]
-		private struct IMAGELISTDRAWPARAMS {
+		internal struct IMAGELISTDRAWPARAMS {
 			public int cbSize;
 			public IntPtr himl;
 			public int i;
@@ -253,31 +249,32 @@ namespace FastExplorer.Helpers {
 			return icon;
 		}
 
-		[DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
-		private static extern void SHCreateItemFromParsingName(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszPath,
+		[LibraryImport("shell32.dll", StringMarshalling = StringMarshalling.Utf16)]
+		private static partial void SHCreateItemFromParsingName(
+			string pszPath,
 			IntPtr pbc,
-			[MarshalAs(UnmanagedType.LPStruct)] Guid riid,
-			[MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory ppv);
+			in Guid riid,
+			out IShellItemImageFactory ppv);
 
-		[ComImport]
-		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		[GeneratedComInterface]
 		[Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b")]
-		private interface IShellItemImageFactory {
+		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		internal partial interface IShellItemImageFactory {
 			void GetImage(
-				[MarshalAs(UnmanagedType.Struct)] SIZE size,
+				SIZE size,
 				int flags,
 				out IntPtr phbm);
 		}
 
 		[StructLayout(LayoutKind.Sequential)]
-		private struct SIZE {
+		internal struct SIZE {
 			public int cx;
 			public int cy;
 		}
 
-		[DllImport("gdi32.dll")]
-		private static extern bool DeleteObject(IntPtr hObject);
+		[LibraryImport("gdi32.dll")]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static partial bool DeleteObject(IntPtr hObject);
 
 		public static ImageSource? GetThumbnail(string path, int size) {
 			try {
@@ -303,5 +300,3 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
-#pragma warning restore SYSLIB1096 // Convert to 'GeneratedComInterface'
-#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
