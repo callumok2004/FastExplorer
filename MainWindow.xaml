@@ -8,6 +8,8 @@
     Title="FastExplorer"
     Width="1100"
     Height="700"
+    MinWidth="800"
+    MinHeight="600"
     Background="Transparent"
     FontFamily="Segoe UI Variable, Segoe UI, Segoe WP, System-ui, Sans-serif"
     Foreground="#FFFFFF"
@@ -605,6 +607,11 @@
                             <Trigger Property="IsMouseOver" Value="true">
                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#333399FF" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3399FF" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                            </DataTrigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsSelected" Value="true" />
@@ -743,6 +750,11 @@
                             <Trigger Property="IsMouseOver" Value="true">
                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#333399FF" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3399FF" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -928,6 +940,11 @@
                             <Trigger Property="IsMouseOver" Value="true">
                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#333399FF" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3399FF" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -981,6 +998,15 @@
     </Window.Resources>
 
     <Grid>
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                        <Setter Property="Margin" Value="8" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -1206,11 +1232,15 @@
                                                 Margin="0,0,2,0"
                                                 Padding="4,2"
                                                 VerticalAlignment="Center"
+                                                AllowDrop="True"
                                                 Background="Transparent"
                                                 BorderThickness="0"
                                                 Command="{Binding NavigateCommand}"
                                                 CommandParameter="{Binding Path}"
                                                 Content="{Binding Name}"
+                                                DragOver="PathSegment_DragOver"
+                                                DragLeave="PathSegment_DragLeave"
+                                                Drop="PathSegment_Drop"
                                                 Foreground="{StaticResource TextPrimary}">
                                                 <Button.Template>
                                                     <ControlTemplate TargetType="Button">
@@ -1225,6 +1255,11 @@
                                                             <Trigger Property="IsMouseOver" Value="True">
                                                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
                                                             </Trigger>
+                                                            <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#333399FF" />
+                                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3399FF" />
+                                                                <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+                                                            </DataTrigger>
                                                         </ControlTemplate.Triggers>
                                                     </ControlTemplate>
                                                 </Button.Template>
@@ -1553,7 +1588,7 @@
 
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="260" MinWidth="200" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -1575,6 +1610,7 @@
                             AllowDrop="True"
                             BorderThickness="0"
                             DragOver="TreeView_DragOver"
+                            DragLeave="TreeView_DragLeave"
                             Drop="TreeView_Drop"
                             ItemsSource="{Binding QuickAccess}"
                             MouseMove="TreeView_MouseMove"
@@ -1684,7 +1720,11 @@
                         </Button>
 
                         <TreeView
+                            AllowDrop="True"
                             BorderThickness="0"
+                            DragOver="TreeView_DragOver"
+                            DragLeave="TreeView_DragLeave"
+                            Drop="TreeView_Drop"
                             ItemsSource="{Binding Drives}"
                             SelectedItemChanged="TreeView_SelectedItemChanged">
                             <TreeView.ItemTemplate>
@@ -1748,7 +1788,11 @@
                 <Grid>
                     <ListView
                         x:Name="FileListView"
+                        AllowDrop="True"
                         BorderThickness="0"
+                        DragOver="FileListView_DragOver"
+                        DragLeave="FileListView_DragLeave"
+                        Drop="FileListView_Drop"
                         ItemsSource="{Binding Files}"
                         MouseDoubleClick="ListView_MouseDoubleClick"
                         MouseMove="ListView_MouseMove"

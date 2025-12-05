@@ -120,6 +120,10 @@ namespace FastExplorer {
 			Keyboard.ClearFocus();
 
 			if (sender is ListView lv) {
+				if (e.ChangedButton == MouseButton.Left) {
+					_startPoint = e.GetPosition(lv);
+				}
+
 				var hit = VisualTreeHelper.HitTest(lv, e.GetPosition(lv));
 				if (hit?.VisualHit != null) {
 					if (FindAncestor<ScrollBar>(hit.VisualHit) != null) return;
@@ -131,7 +135,6 @@ namespace FastExplorer {
 
 						if (e.ChangedButton == MouseButton.Left) {
 							_isDraggingSelection = true;
-							_startPoint = e.GetPosition(lv);
 							_ = Mouse.Capture(lv);
 
 							if (FindName("SelectionBox") is Border selectionBox && FindName("SelectionCanvas") is Canvas selectionCanvas) {
@@ -143,7 +146,13 @@ namespace FastExplorer {
 							}
 						}
 					}
-					else if (e.ChangedButton == MouseButton.Middle) {
+					else {
+						if (e.ClickCount == 1 && e.ChangedButton == MouseButton.Left && item.IsSelected && (Keyboard.Modifiers & ModifierKeys.Control) == 0 && (Keyboard.Modifiers & ModifierKeys.Shift) == 0) {
+							e.Handled = true;
+						}
+					}
+
+					if (item != null && e.ChangedButton == MouseButton.Middle) {
 						if (item.DataContext is FileItemViewModel fileItem && fileItem.IsFolder) {
 							if (DataContext is MainViewModel vm) {
 								vm.AddTabCommand.Execute(fileItem.FullPath);
@@ -171,6 +180,38 @@ namespace FastExplorer {
 
 				UpdateSelection(lv, new Rect(x, y, w, h));
 			}
+			else if (e.LeftButton == MouseButtonState.Pressed && sender is ListView listView) {
+				Point mousePos = e.GetPosition(listView);
+				Vector diff = _startPoint - mousePos;
+				if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+					Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance) {
+
+					var listViewItem = FindAncestor<ListViewItem>((DependencyObject)e.OriginalSource);
+					if (listViewItem != null && listView.SelectedItems.Count > 0) {
+						foreach (var item in listView.SelectedItems) {
+							if (item is DriveItemViewModel) return;
+						}
+
+						var files = new System.Collections.Specialized.StringCollection();
+						foreach (FileItemViewModel item in listView.SelectedItems) {
+							files.Add(item.FullPath);
+						}
+
+						var data = new DataObject();
+						data.SetFileDropList(files);
+						data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(2)));
+
+						try {
+							var result = DragDrop.DoDragDrop(listView, data, DragDropEffects.Copy | DragDropEffects.Move);
+
+							if (DataContext is MainViewModel vm && vm.SelectedTab != null) {
+								vm.SelectedTab.RefreshCommand.Execute(null);
+							}
+						}
+						catch { }
+					}
+				}
+			}
 		}
 
 		private void UpdateSelection(ListView lv, Rect selectionRect) {
@@ -195,6 +236,119 @@ namespace FastExplorer {
 				_ = Mouse.Capture(null);
 				if (FindName("SelectionCanvas") is Canvas selectionCanvas) {
 					selectionCanvas.Visibility = Visibility.Collapsed;
+				}
+			}
+			else if (sender is ListView lv) {
+				var hit = VisualTreeHelper.HitTest(lv, e.GetPosition(lv));
+				var item = FindAncestor<ListViewItem>(hit?.VisualHit);
+				if (item != null && (Keyboard.Modifiers & ModifierKeys.Control) == 0 && (Keyboard.Modifiers & ModifierKeys.Shift) == 0) {
+					if (item.IsSelected) {
+						lv.SelectedItems.Clear();
+						item.IsSelected = true;
+					}
+				}
+			}
+		}
+
+		private FileItemViewModel? _lastDropTarget;
+
+		private void FileListView_DragOver(object sender, DragEventArgs e) {
+			e.Effects = DragDropEffects.Move;
+			if ((e.KeyStates & DragDropKeyStates.ControlKey) == DragDropKeyStates.ControlKey) {
+				e.Effects = DragDropEffects.Copy;
+			}
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				if (sender is ListView lv2) {
+					var hit = VisualTreeHelper.HitTest(lv2, e.GetPosition(lv2));
+					FileItemViewModel? currentTarget = null;
+
+					if (hit?.VisualHit != null) {
+						var item = FindAncestor<ListViewItem>(hit.VisualHit);
+						if (item != null && item.DataContext is FileItemViewModel fileItem && (fileItem.IsFolder || fileItem.IsDrive)) {
+							currentTarget = fileItem;
+						}
+					}
+
+					if (_lastDropTarget != currentTarget) {
+						if (_lastDropTarget != null) _lastDropTarget.IsDropTarget = false;
+						_lastDropTarget = currentTarget;
+						if (_lastDropTarget != null) _lastDropTarget.IsDropTarget = true;
+					}
+				}
+			}
+			else {
+				e.Effects = DragDropEffects.None;
+			}
+		}
+
+		private void FileListView_DragLeave(object sender, DragEventArgs e) {
+			if (_lastDropTarget != null) {
+				_lastDropTarget.IsDropTarget = false;
+				_lastDropTarget = null;
+			}
+		}
+
+		private void FileListView_Drop(object sender, DragEventArgs e) {
+			if (_lastDropTarget != null) {
+				_lastDropTarget.IsDropTarget = false;
+				_lastDropTarget = null;
+			}
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+				if (files == null || files.Length == 0) return;
+
+				string? destPath = null;
+
+				if (sender is ListView lv) {
+					var hit = VisualTreeHelper.HitTest(lv, e.GetPosition(lv));
+					if (hit?.VisualHit != null) {
+						var item = FindAncestor<ListViewItem>(hit.VisualHit);
+						if (item != null && item.DataContext is FolderItemViewModel folder) {
+							destPath = folder.FullPath;
+						}
+						else if (item != null && item.DataContext is DriveItemViewModel drive) {
+							destPath = drive.FullPath;
+						}
+					}
+				}
+
+				if (string.IsNullOrEmpty(destPath)) {
+					if (DataContext is MainViewModel vm && vm.SelectedTab != null) {
+						destPath = vm.SelectedTab.CurrentPath;
+					}
+				}
+
+				if (string.IsNullOrEmpty(destPath) || destPath == "This PC") return;
+
+				bool isSame = false;
+				foreach (var file in files) {
+					if (string.Equals(file, destPath, StringComparison.OrdinalIgnoreCase)) {
+						isSame = true;
+						break;
+					}
+					var parent = Path.GetDirectoryName(file);
+					if (string.Equals(parent, destPath, StringComparison.OrdinalIgnoreCase)) {
+						isSame = true;
+						break;
+					}
+				}
+				if (isSame) return;
+
+				bool isMove = true;
+				if ((e.KeyStates & DragDropKeyStates.ControlKey) == DragDropKeyStates.ControlKey) isMove = false;
+
+				foreach (var file in files) {
+					try {
+						if (isMove) ShellHelper.MoveFile(file, destPath);
+						else ShellHelper.CopyFile(file, destPath);
+					}
+					catch { }
+				}
+
+				if (DataContext is MainViewModel vm2 && vm2.SelectedTab != null) {
+					vm2.SelectedTab.RefreshCommand.Execute(null);
 				}
 			}
 		}
@@ -376,9 +530,6 @@ namespace FastExplorer {
 			_startPoint = e.GetPosition(null);
 		}
 
-		private DragAdorner? _dragAdorner;
-		private AdornerLayer? _adornerLayer;
-
 		private void TreeView_MouseMove(object sender, MouseEventArgs e) {
 			if (e.LeftButton == MouseButtonState.Pressed) {
 				Point mousePos = e.GetPosition(null);
@@ -391,18 +542,10 @@ namespace FastExplorer {
 
 						if (treeViewItem != null && treeViewItem.DataContext is DirectoryItemViewModel item) {
 							if (DataContext is MainViewModel vm && treeView.ItemsSource == vm.QuickAccess) {
-								_adornerLayer = AdornerLayer.GetAdornerLayer(treeView);
-								_dragAdorner = new DragAdorner(treeView, treeViewItem, e.GetPosition(treeViewItem));
-								_adornerLayer.Add(_dragAdorner);
-
 								try {
 									_ = DragDrop.DoDragDrop(treeViewItem, item, DragDropEffects.Move);
 								}
-								finally {
-									_adornerLayer.Remove(_dragAdorner);
-									_dragAdorner = null;
-									_adornerLayer = null;
-								}
+								catch { }
 							}
 						}
 					}
@@ -410,14 +553,98 @@ namespace FastExplorer {
 			}
 		}
 
+		private DirectoryItemViewModel? _lastTreeDropTarget;
+
 		private void TreeView_DragOver(object sender, DragEventArgs e) {
-			if (_dragAdorner != null && sender is TreeView treeView) {
-				_dragAdorner.UpdatePosition(e.GetPosition(treeView));
+			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				e.Effects = DragDropEffects.Move;
+				if ((e.KeyStates & DragDropKeyStates.ControlKey) == DragDropKeyStates.ControlKey) {
+					e.Effects = DragDropEffects.Copy;
+				}
+
+				if (sender is TreeView tv) {
+					var hit = VisualTreeHelper.HitTest(tv, e.GetPosition(tv));
+					DirectoryItemViewModel? currentTarget = null;
+
+					if (hit?.VisualHit != null) {
+						var item = FindAncestor<TreeViewItem>(hit.VisualHit);
+						if (item != null && item.DataContext is DirectoryItemViewModel dirItem) {
+							currentTarget = dirItem;
+						}
+					}
+
+					if (_lastTreeDropTarget != currentTarget) {
+						if (_lastTreeDropTarget != null) _lastTreeDropTarget.IsDropTarget = false;
+						_lastTreeDropTarget = currentTarget;
+						if (_lastTreeDropTarget != null) _lastTreeDropTarget.IsDropTarget = true;
+					}
+				}
+			}
+			else if (!e.Data.GetDataPresent(typeof(DirectoryItemViewModel))) {
+				e.Effects = DragDropEffects.None;
+			}
+		}
+
+		private void TreeView_DragLeave(object sender, DragEventArgs e) {
+			if (_lastTreeDropTarget != null) {
+				_lastTreeDropTarget.IsDropTarget = false;
+				_lastTreeDropTarget = null;
 			}
 		}
 
 		private void TreeView_Drop(object sender, DragEventArgs e) {
-			if (e.Data.GetDataPresent(typeof(DirectoryItemViewModel))) {
+			if (_lastTreeDropTarget != null) {
+				_lastTreeDropTarget.IsDropTarget = false;
+				_lastTreeDropTarget = null;
+			}
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+				if (files == null || files.Length == 0) return;
+
+				string? destPath = null;
+				if (sender is TreeView tv) {
+					var hit = VisualTreeHelper.HitTest(tv, e.GetPosition(tv));
+					if (hit?.VisualHit != null) {
+						var item = FindAncestor<TreeViewItem>(hit.VisualHit);
+						if (item != null && item.DataContext is DirectoryItemViewModel dirItem) {
+							destPath = dirItem.FullPath;
+						}
+					}
+				}
+
+				if (string.IsNullOrEmpty(destPath) || destPath == "This PC") return;
+
+				bool isSame = false;
+				foreach (var file in files) {
+					if (string.Equals(file, destPath, StringComparison.OrdinalIgnoreCase)) {
+						isSame = true;
+						break;
+					}
+					var parent = Path.GetDirectoryName(file);
+					if (string.Equals(parent, destPath, StringComparison.OrdinalIgnoreCase)) {
+						isSame = true;
+						break;
+					}
+				}
+				if (isSame) return;
+
+				bool isMove = true;
+				if ((e.KeyStates & DragDropKeyStates.ControlKey) == DragDropKeyStates.ControlKey) isMove = false;
+
+				foreach (var file in files) {
+					try {
+						if (isMove) ShellHelper.MoveFile(file, destPath);
+						else ShellHelper.CopyFile(file, destPath);
+					}
+					catch { }
+				}
+
+				if (DataContext is MainViewModel vm2 && vm2.SelectedTab != null) {
+					vm2.SelectedTab.RefreshCommand.Execute(null);
+				}
+			}
+			else if (e.Data.GetDataPresent(typeof(DirectoryItemViewModel))) {
 				var source = e.Data.GetData(typeof(DirectoryItemViewModel)) as DirectoryItemViewModel;
 				var treeViewItem = FindAncestor<TreeViewItem>((DependencyObject)e.OriginalSource);
 
@@ -427,6 +654,87 @@ namespace FastExplorer {
 					}
 				}
 			}
+		}
+
+		private PathSegmentViewModel? _lastPathDropTarget;
+
+		private void PathSegment_DragOver(object sender, DragEventArgs e) {
+			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				e.Effects = DragDropEffects.Move;
+				if ((e.KeyStates & DragDropKeyStates.ControlKey) == DragDropKeyStates.ControlKey) {
+					e.Effects = DragDropEffects.Copy;
+				}
+
+				if (sender is FrameworkElement element && element.DataContext is PathSegmentViewModel segment) {
+					if (_lastPathDropTarget != segment) {
+						if (_lastPathDropTarget != null) _lastPathDropTarget.IsDropTarget = false;
+						_lastPathDropTarget = segment;
+						if (_lastPathDropTarget != null) _lastPathDropTarget.IsDropTarget = true;
+					}
+				}
+			}
+			else {
+				e.Effects = DragDropEffects.None;
+			}
+			e.Handled = true;
+		}
+
+		private void PathSegment_DragLeave(object sender, DragEventArgs e) {
+			if (_lastPathDropTarget != null) {
+				_lastPathDropTarget.IsDropTarget = false;
+				_lastPathDropTarget = null;
+			}
+			e.Handled = true;
+		}
+
+		private void PathSegment_Drop(object sender, DragEventArgs e) {
+			if (_lastPathDropTarget != null) {
+				_lastPathDropTarget.IsDropTarget = false;
+				_lastPathDropTarget = null;
+			}
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
+				var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+				if (files == null || files.Length == 0) return;
+
+				string? destPath = null;
+				if (sender is FrameworkElement element && element.DataContext is PathSegmentViewModel segment) {
+					destPath = segment.Path;
+				}
+
+				if (string.IsNullOrEmpty(destPath) || destPath == "This PC") return;
+
+				// Check if source is same as destination
+				bool isSame = false;
+				foreach (var file in files) {
+					if (string.Equals(file, destPath, StringComparison.OrdinalIgnoreCase)) {
+						isSame = true;
+						break;
+					}
+					var parent = Path.GetDirectoryName(file);
+					if (string.Equals(parent, destPath, StringComparison.OrdinalIgnoreCase)) {
+						isSame = true;
+						break;
+					}
+				}
+				if (isSame) return;
+
+				bool isMove = true;
+				if ((e.KeyStates & DragDropKeyStates.ControlKey) == DragDropKeyStates.ControlKey) isMove = false;
+
+				foreach (var file in files) {
+					try {
+						if (isMove) ShellHelper.MoveFile(file, destPath);
+						else ShellHelper.CopyFile(file, destPath);
+					}
+					catch { }
+				}
+
+				if (DataContext is MainViewModel vm2 && vm2.SelectedTab != null) {
+					vm2.SelectedTab.RefreshCommand.Execute(null);
+				}
+			}
+			e.Handled = true;
 		}
 
 		private void TabItem_MouseDown(object sender, MouseButtonEventArgs e) {
@@ -725,10 +1033,16 @@ namespace FastExplorer {
 		}
 	}
 
-	public class PathSegmentViewModel {
+	public class PathSegmentViewModel : ViewModelBase {
 		public string Name { get; }
 		public string Path { get; }
 		public ICommand NavigateCommand { get; }
+
+		private bool _isDropTarget;
+		public bool IsDropTarget {
+			get => _isDropTarget;
+			set => SetProperty(ref _isDropTarget, value);
+		}
 
 		public PathSegmentViewModel(string name, string path, ICommand navigateCommand) {
 			Name = name;
@@ -1533,12 +1847,18 @@ namespace FastExplorer {
 		private bool _isSelected;
 		private ObservableCollection<DirectoryItemViewModel> _subDirectories;
 		private bool _hasDummyChild;
+		private bool _isDropTarget;
 
 		public string FullPath { get; }
 		public string Name { get; }
 		public ImageSource? Icon { get; }
 		public bool IsDrive { get; }
 		public double PercentUsed { get; }
+
+		public bool IsDropTarget {
+			get => _isDropTarget;
+			set => SetProperty(ref _isDropTarget, value);
+		}
 
 		public DirectoryItemViewModel(string fullPath, string? name = null, string? label = null, bool isDrive = false) {
 			FullPath = fullPath;
@@ -1637,6 +1957,7 @@ namespace FastExplorer {
 		private ObservableCollection<ShellContextMenu.ShellMenuItem>? _shellMenuItems;
 		private bool _isRenaming;
 		private string _renameText = string.Empty;
+		private bool _isDropTarget;
 
 		public string Name { get; }
 		public string FullPath { get; }
@@ -1651,6 +1972,11 @@ namespace FastExplorer {
 		public string RenameText {
 			get => _renameText;
 			set => SetProperty(ref _renameText, value);
+		}
+
+		public bool IsDropTarget {
+			get => _isDropTarget;
+			set => SetProperty(ref _isDropTarget, value);
 		}
 
 		public ObservableCollection<ShellContextMenu.ShellMenuItem> ShellMenuItems {
@@ -1674,6 +2000,7 @@ namespace FastExplorer {
 
 		public void RefreshIcon(int size) {
 			_icon = LoadIcon(size);
+			_iconLoaded = true;
 			OnPropertyChanged(nameof(Icon));
 		}
 
@@ -1871,6 +2198,24 @@ namespace FastExplorer {
 	#endregion
 
 	#region Interop / Helpers
+
+	public static class MouseHelper {
+		[DllImport("user32.dll")]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool GetCursorPos(ref Win32Point pt);
+
+		[StructLayout(LayoutKind.Sequential)]
+		private struct Win32Point {
+			public int X;
+			public int Y;
+		}
+
+		public static Point GetMousePosition(Visual relativeTo) {
+			var w32Mouse = new Win32Point();
+			GetCursorPos(ref w32Mouse);
+			return relativeTo.PointFromScreen(new Point(w32Mouse.X, w32Mouse.Y));
+		}
+	}
 
 	public static class WindowAccentCompositor {
 		[DllImport("user32.dll")]
@@ -2509,31 +2854,6 @@ namespace FastExplorer {
 
 		public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) {
 			throw new NotImplementedException();
-		}
-	}
-
-	public class DragAdorner : Adorner {
-		private readonly Brush _visualBrush;
-		private Point _currentPosition;
-		private readonly Point _offset;
-		private readonly Size _renderSize;
-
-		public DragAdorner(UIElement adornedElement, UIElement dragElement, Point offset) : base(adornedElement) {
-			_visualBrush = new VisualBrush(dragElement) { Opacity = 0.7, Stretch = Stretch.None };
-			_offset = offset;
-			_renderSize = dragElement.RenderSize;
-			IsHitTestVisible = false;
-		}
-
-		public void UpdatePosition(Point position) {
-			_currentPosition = position;
-			if (Parent is AdornerLayer layer) {
-				layer.Update(this.AdornedElement);
-			}
-		}
-
-		protected override void OnRender(DrawingContext drawingContext) {
-			drawingContext.DrawRectangle(_visualBrush, null, new Rect(_currentPosition.X - _offset.X, _currentPosition.Y - _offset.Y, _renderSize.Width, _renderSize.Height));
 		}
 	}
 
