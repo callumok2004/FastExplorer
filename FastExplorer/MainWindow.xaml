@@ -1060,7 +1060,6 @@
                 VerticalAlignment="Bottom"
                 HorizontalScrollBarVisibility="Hidden"
                 VerticalScrollBarVisibility="Disabled"
-                WindowChrome.IsHitTestVisibleInChrome="True"
                 PreviewMouseWheel="ScrollViewer_PreviewMouseWheel">
                 <StackPanel Orientation="Horizontal">
                     <ListBox
@@ -1072,7 +1071,8 @@
                         ItemsSource="{Binding Tabs}"
                         SelectedItem="{Binding SelectedTab}"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                        ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                        ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -1182,7 +1182,8 @@
                     VerticalAlignment="Bottom"
                     Command="{Binding AddTabCommand}"
                     Content="&#xE710;"
-                    Style="{StaticResource NavButtonStyle}" />
+                    Style="{StaticResource NavButtonStyle}"
+                    WindowChrome.IsHitTestVisibleInChrome="True" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>
