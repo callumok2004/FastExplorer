@@ -490,7 +490,7 @@ namespace FastExplorer.ViewModels {
 					view.GroupDescriptions.Clear();
 					view.GroupDescriptions.Add(new PropertyGroupDescription("Category"));
 					view.SortDescriptions.Add(new SortDescription("Category", ListSortDirection.Ascending));
-					view.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+					view.SortDescriptions.Add(new SortDescription("FullPath", ListSortDirection.Ascending));
 				}
 				else {
 					view.GroupDescriptions.Clear();
