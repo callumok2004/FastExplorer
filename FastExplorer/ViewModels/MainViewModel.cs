@@ -37,12 +37,14 @@ namespace FastExplorer.ViewModels {
 			_quickAccess = [];
 			_tabs = [];
 
+#if DEBUG
 			_currentProcess = Process.GetCurrentProcess();
 			_lastProcessorTime = _currentProcess.TotalProcessorTime;
 			_lastTimerTick = DateTime.Now;
 			_statusTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
 			_statusTimer.Tick += UpdateSystemStatus;
 			_statusTimer.Start();
+#endif
 
 			LoadQuickAccess();
 			LoadDrives();
@@ -75,17 +77,20 @@ namespace FastExplorer.ViewModels {
 		}
 
 		private void UpdateSystemStatus(object? sender, EventArgs e) {
+#if DEBUG
 			try {
+				_currentProcess.Refresh();
 				var now = DateTime.Now;
 				var currentProcessorTime = _currentProcess.TotalProcessorTime;
 				var cpuUsage = (currentProcessorTime - _lastProcessorTime).TotalMilliseconds / (now - _lastTimerTick).TotalMilliseconds / Environment.ProcessorCount * 100;
 				_lastProcessorTime = currentProcessorTime;
 				_lastTimerTick = now;
 
-				long memory = _currentProcess.WorkingSet64;
+				long memory = _currentProcess.PrivateMemorySize64;
 				SystemStatus = $"CPU: {cpuUsage:0}%   Mem: {FileItemViewModel.FormatSize(memory)}";
 			}
 			catch { }
+#endif
 		}
 
 		private void MovePin(object? param, int direction) {

@@ -398,15 +398,17 @@ namespace FastExplorer {
 			}
 		}
 
-		private void UpdateContextMenu(ContextMenu menu, ObservableCollection<ShellContextMenu.ShellMenuItem> shellItems) {
+		private void UpdateContextMenu(ContextMenu menu, IEnumerable<ShellContextMenu.ShellMenuItem> shellItems) {
 			var itemsToRemove = menu.Items.OfType<MenuItem>().Where(x => x.Tag is string s && s == "ShellItem").ToList();
 			foreach (var item in itemsToRemove) menu.Items.Remove(item);
 
 			var separatorsToRemove = menu.Items.OfType<Separator>().Where(x => x.Tag is string s && s == "ShellItem").ToList();
 			foreach (var item in separatorsToRemove) menu.Items.Remove(item);
 
-			if (shellItems.Count > 0) {
-				if (!shellItems[0].IsSeparator) {
+			var list = shellItems as IList<ShellContextMenu.ShellMenuItem> ?? [.. shellItems];
+
+			if (list.Count > 0) {
+				if (!list[0].IsSeparator) {
 					var sep = new Separator { Tag = "ShellItem" };
 					if (Application.Current.MainWindow?.FindResource("ContextMenuSeparatorStyle") is Style style) {
 						sep.Style = style;
@@ -414,7 +416,7 @@ namespace FastExplorer {
 					_ = menu.Items.Add(sep);
 				}
 
-				foreach (var shellItem in shellItems) {
+				foreach (var shellItem in list) {
 					_ = menu.Items.Add(CreateMenuItem(shellItem));
 				}
 
@@ -701,7 +703,6 @@ namespace FastExplorer {
 
 				if (string.IsNullOrEmpty(destPath) || destPath == "This PC") return;
 
-				// Check if source is same as destination
 				bool isSame = false;
 				foreach (var file in files) {
 					if (string.Equals(file, destPath, StringComparison.OrdinalIgnoreCase)) {

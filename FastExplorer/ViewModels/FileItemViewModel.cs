@@ -1,20 +1,31 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Media;
+
+using CommunityToolkit.HighPerformance.Buffers;
+
 using FastExplorer.Helpers;
 
 namespace FastExplorer.ViewModels {
 	public class FileItemViewModel : ViewModelBase {
 		private static readonly Dictionary<string, string> _typeCache = new(StringComparer.OrdinalIgnoreCase);
-		private ImageSource? _icon;
+		private static readonly string[] _sizeSuffixes = ["B", "KB", "MB", "GB", "TB"];
+
+		private readonly string _directory;
+		private readonly string _fileName;
+		private readonly string? _fullPathOverride;
+
+		private byte _desiredIconSize = 32;
 		private bool _iconLoaded;
-		private ObservableCollection<ShellContextMenu.ShellMenuItem>? _shellMenuItems;
 		private bool _isRenaming;
-		private string _renameText = string.Empty;
 		private bool _isDropTarget;
 
-		public string Name { get; }
-		public string FullPath { get; }
+		private ImageSource? _icon;
+		private List<ShellContextMenu.ShellMenuItem>? _shellMenuItems;
+		private string _renameText = string.Empty;
+
+		public string Name => _fileName;
+		public string FullPath => _fullPathOverride ?? Path.Combine(_directory, _fileName);
 		public long Size { get; protected set; }
 		public DateTime DateModified { get; }
 
@@ -33,17 +44,12 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _isDropTarget, value);
 		}
 
-		public ObservableCollection<ShellContextMenu.ShellMenuItem> ShellMenuItems {
-			get {
-				_shellMenuItems ??= [];
-				return _shellMenuItems;
-			}
-		}
+		public IEnumerable<ShellContextMenu.ShellMenuItem> ShellMenuItems => _shellMenuItems ?? Enumerable.Empty<ShellContextMenu.ShellMenuItem>();
 
 		public ImageSource? Icon {
 			get {
 				if (!_iconLoaded) {
-					_icon = LoadIcon(32);
+					_icon = LoadIcon(_desiredIconSize);
 					_iconLoaded = true;
 				}
 				return _icon;
@@ -51,9 +57,12 @@ namespace FastExplorer.ViewModels {
 		}
 
 		public void RefreshIcon(int size) {
-			_icon = LoadIcon(size);
-			_iconLoaded = true;
-			OnPropertyChanged(nameof(Icon));
+			if (_desiredIconSize != size || _iconLoaded) {
+				_desiredIconSize = (byte)Math.Min(size, 255);
+				_icon = null;
+				_iconLoaded = false;
+				OnPropertyChanged(nameof(Icon));
+			}
 		}
 
 		public virtual bool IsFolder => false;
@@ -66,9 +75,8 @@ namespace FastExplorer.ViewModels {
 
 		public DateTime DateGroupKey {
 			get {
-				var now = DateTime.Now;
+				var today = DateTime.Today;
 				var date = DateModified.Date;
-				var today = now.Date;
 				var yesterday = today.AddDays(-1);
 
 				if (date == today) return today;
@@ -96,10 +104,19 @@ namespace FastExplorer.ViewModels {
 		public virtual string Type {
 			get {
 				try {
-					string ext = Path.GetExtension(FullPath);
+					string ext = _fullPathOverride != null ? Path.GetExtension(_fullPathOverride) : Path.GetExtension(_fileName);
 					if (string.IsNullOrEmpty(ext)) return "File";
 
-					string key = ext.ToLower();
+					string key;
+					if (ext.Length <= 64) {
+						Span<char> buffer = stackalloc char[ext.Length];
+						ext.AsSpan().ToLower(buffer, System.Globalization.CultureInfo.CurrentCulture);
+						key = StringPool.Shared.GetOrAdd(buffer);
+					}
+					else {
+						key = StringPool.Shared.GetOrAdd(ext.ToLower());
+					}
+
 					lock (_typeCache) {
 						if (!_typeCache.TryGetValue(key, out var typeStr)) {
 							typeStr = IconHelper.GetFileType(ext);
@@ -117,25 +134,43 @@ namespace FastExplorer.ViewModels {
 
 		public override bool Equals(object? obj) {
 			if (obj is FileItemViewModel other) {
-				return FullPath.Equals(other.FullPath, StringComparison.OrdinalIgnoreCase);
+				if (_fullPathOverride != null) return _fullPathOverride.Equals(other.FullPath, StringComparison.OrdinalIgnoreCase);
+				return _fileName.Equals(other._fileName, StringComparison.OrdinalIgnoreCase) &&
+							 _directory.Equals(other._directory, StringComparison.OrdinalIgnoreCase);
 			}
 			return false;
 		}
 
 		public override int GetHashCode() {
-			return FullPath.GetHashCode(StringComparison.OrdinalIgnoreCase);
+			if (_fullPathOverride != null) return _fullPathOverride.GetHashCode(StringComparison.OrdinalIgnoreCase);
+			return HashCode.Combine(
+				_directory.GetHashCode(StringComparison.OrdinalIgnoreCase),
+				_fileName.GetHashCode(StringComparison.OrdinalIgnoreCase));
 		}
 
-		public FileItemViewModel(FileInfo info) {
-			Name = info.Name;
-			FullPath = info.FullName;
+		public FileItemViewModel(FileInfo info, bool poolName = true) {
+			if (poolName)
+				_fileName = StringPool.Shared.GetOrAdd(info.Name);
+			else
+				_fileName = info.Name;
+
+			var dirSpan = Path.GetDirectoryName(info.FullName.AsSpan());
+			_directory = StringPool.Shared.GetOrAdd(dirSpan);
+			_fullPathOverride = null;
+
 			Size = info.Length;
 			DateModified = info.LastWriteTime;
 		}
 
-		protected FileItemViewModel(string name, string fullPath, DateTime dateModified) {
-			Name = name;
-			FullPath = fullPath;
+		protected FileItemViewModel(string name, string fullPath, DateTime dateModified, bool poolName = true) {
+			if (poolName)
+				_fileName = StringPool.Shared.GetOrAdd(name);
+			else
+				_fileName = name;
+
+			_fullPathOverride = fullPath;
+			_directory = string.Empty;
+
 			DateModified = dateModified;
 			Size = 0;
 		}
@@ -144,9 +179,10 @@ namespace FastExplorer.ViewModels {
 			if (_shellMenuItems != null && _shellMenuItems.Count > 0) return;
 
 			try {
+				_shellMenuItems ??= [];
 				var items = ShellContextMenu.GetContextMenuItems([new FileInfo(FullPath)]);
 				foreach (var item in items) {
-					ShellMenuItems.Add(item);
+					_shellMenuItems.Add(item);
 				}
 			}
 			catch { }
@@ -165,18 +201,17 @@ namespace FastExplorer.ViewModels {
 		}
 
 		public static string FormatSize(long bytes) {
-			string[] sizes = ["B", "KB", "MB", "GB", "TB"];
 			double len = bytes;
 			int order = 0;
-			while (len >= 1024 && order < sizes.Length - 1) {
+			while (len >= 1024 && order < _sizeSuffixes.Length - 1) {
 				order++;
 				len /= 1024;
 			}
-			return $"{len:0.##} {sizes[order]}";
+			return $"{len:0.##} {_sizeSuffixes[order]}";
 		}
 	}
 
-	public class FolderItemViewModel(DirectoryInfo info) : FileItemViewModel(info.Name, info.FullName, info.LastWriteTime) {
+	public class FolderItemViewModel(DirectoryInfo info, bool poolName = true) : FileItemViewModel(info.Name, info.FullName, info.LastWriteTime, poolName) {
 		public override bool IsFolder => true;
 		public override string Type => "File folder";
 		public override string DisplaySize => "";

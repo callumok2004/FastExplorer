@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance.Buffers;
 
 
 #pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
@@ -46,7 +47,9 @@ namespace FastExplorer.Helpers {
 								}
 
 								if (!string.IsNullOrEmpty(path) && Directory.Exists(path)) {
-									list.Add((path, name ?? new DirectoryInfo(path).Name));
+									string pooledPath = StringPool.Shared.GetOrAdd(path);
+									string pooledName = StringPool.Shared.GetOrAdd(name ?? new DirectoryInfo(path).Name);
+									list.Add((pooledPath, pooledName));
 								}
 							}
 							catch { }

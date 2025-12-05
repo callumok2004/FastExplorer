@@ -15,6 +15,8 @@ namespace FastExplorer.Helpers {
 	public static class IconHelper {
 		private static readonly Dictionary<string, ImageSource> _iconCache = [];
 		private static readonly Lock _cacheLock = new();
+		private const int MaxCacheSize = 500;
+
 		private static readonly HashSet<string> _specialPaths = new(StringComparer.OrdinalIgnoreCase) {
 			Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
 			Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -49,6 +51,7 @@ namespace FastExplorer.Helpers {
 
 			if (icon != null) {
 				lock (_cacheLock) {
+					if (_iconCache.Count >= MaxCacheSize) _iconCache.Clear();
 					if (!_iconCache.ContainsKey(ext)) _iconCache[ext] = icon;
 				}
 			}
@@ -70,6 +73,7 @@ namespace FastExplorer.Helpers {
 
 			if (icon != null) {
 				lock (_cacheLock) {
+					if (_iconCache.Count >= MaxCacheSize) _iconCache.Clear();
 					if (!_iconCache.ContainsKey(key)) _iconCache[key] = icon;
 				}
 			}
@@ -173,97 +177,80 @@ namespace FastExplorer.Helpers {
 		private const int SHIL_EXTRALARGE = 0x2;
 		private const int ILD_TRANSPARENT = 0x1;
 
+		private const uint SHGFI_OPENICON = 0x2;
+
 		public static ImageSource? GetFileIcon(string path, int size) {
 			string ext = Path.GetExtension(path).ToLower();
 			if (string.IsNullOrEmpty(ext)) ext = ".file";
 
 			if (ext == ".exe" || ext == ".lnk" || ext == ".ico") {
-				return GetIcon(path, false, false, size);
+				return GetIcon(path, false, false, false, size);
 			}
 
-			string cacheKey = $"{ext}_{size}";
+			return GetIcon(ext, false, false, true, size);
+		}
+
+		public static ImageSource? GetFolderIcon(string path, bool open, int size) {
+			return GetIcon(path, true, open, false, size);
+		}
+
+		private static ImageSource? GetIcon(string path, bool isFolder, bool isOpen, bool useFileAttributes, int size) {
+			var flags = SHGFI_SYSICONINDEX;
+			if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
+			if (isOpen) flags |= SHGFI_OPENICON;
+
+			var attributes = isFolder ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+
+			SHFILEINFO shinfo = new();
+			IntPtr result = SHGetFileInfo(path, attributes, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
+
+			if (result == IntPtr.Zero) return null;
+
+			int iconIndex = shinfo.iIcon;
+			string cacheKey = $"{iconIndex}_{size}";
+
 			lock (_cacheLock) {
 				if (_iconCache.TryGetValue(cacheKey, out var cachedIcon)) return cachedIcon;
 			}
 
-			var icon = GetIcon(ext, false, true, size);
+			ImageSource? icon = null;
 
-			if (icon != null) {
-				lock (_cacheLock) {
-					if (!_iconCache.ContainsKey(cacheKey)) _iconCache[cacheKey] = icon;
-				}
-			}
-			return icon;
-		}
-
-		public static ImageSource? GetFolderIcon(string path, bool open, int size) {
-			string key = (open ? "folder_open" : "folder_closed") + $"_{size}_{path.GetHashCode()}";
-
-			lock (_cacheLock) {
-				if (_iconCache.TryGetValue(key, out var cachedIcon)) return cachedIcon;
-			}
-
-			var icon = GetIcon(path, true, false, size);
-
-			if (icon != null) {
-				lock (_cacheLock) {
-					if (!_iconCache.ContainsKey(key)) _iconCache[key] = icon;
-				}
-			}
-			return icon;
-		}
-
-		private static BitmapSource? GetIcon(string path, bool isFolder, bool useFileAttributes, int size) {
 			if (size <= 16) {
-				var flags = SHGFI_ICON | SHGFI_SMALLICON;
-				if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
-				var attributes = isFolder ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
-				SHFILEINFO shinfo = new();
-				IntPtr hImg = SHGetFileInfo(path, attributes, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
-				if (hImg == IntPtr.Zero) return null;
-				var icon = Imaging.CreateBitmapSourceFromHIcon(shinfo.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-				_ = DestroyIcon(shinfo.hIcon);
-				icon.Freeze();
-				return icon;
+				var loadFlags = SHGFI_ICON | SHGFI_SMALLICON;
+				if (useFileAttributes) loadFlags |= SHGFI_USEFILEATTRIBUTES;
+				if (isOpen) loadFlags |= SHGFI_OPENICON;
+
+				SHFILEINFO loadInfo = new();
+				IntPtr hImg = SHGetFileInfo(path, attributes, ref loadInfo, (uint)Marshal.SizeOf(loadInfo), loadFlags);
+				
+				if (hImg != IntPtr.Zero) {
+					icon = Imaging.CreateBitmapSourceFromHIcon(loadInfo.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+					_ = DestroyIcon(loadInfo.hIcon);
+				}
 			}
+			else {
+				int imageListType = size > 48 ? SHIL_JUMBO : SHIL_EXTRALARGE;
+				var iidImageList = new Guid("46EB5926-582E-4017-9FDF-E8998DAA0950");
+				int hres = SHGetImageList(imageListType, ref iidImageList, out IImageList? iml);
 
-			int imageListType = size > 48 ? SHIL_JUMBO : SHIL_EXTRALARGE;
-
-			var fileInfo = new SHFILEINFO();
-			uint flags2 = SHGFI_SYSICONINDEX | SHGFI_USEFILEATTRIBUTES;
-			if (!useFileAttributes) flags2 &= ~SHGFI_USEFILEATTRIBUTES;
-
-			uint attr = isFolder ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
-
-			IntPtr result = SHGetFileInfo(path, attr, ref fileInfo, (uint)Marshal.SizeOf(fileInfo), flags2);
-
-			if (result == IntPtr.Zero) return null;
-
-			var iidImageList = new Guid("46EB5926-582E-4017-9FDF-E8998DAA0950");
-			int hres = SHGetImageList(imageListType, ref iidImageList, out IImageList? iml);
-
-			if (hres == 0 && iml != null) {
-				hres = iml.GetIcon(fileInfo.iIcon, ILD_TRANSPARENT, out nint hIcon);
-				if (hres == 0 && hIcon != IntPtr.Zero) {
-					var icon = Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-					_ = DestroyIcon(hIcon);
-					icon.Freeze();
-					return icon;
+				if (hres == 0 && iml != null) {
+					hres = iml.GetIcon(iconIndex, ILD_TRANSPARENT, out nint hIcon);
+					if (hres == 0 && hIcon != IntPtr.Zero) {
+						icon = Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+						_ = DestroyIcon(hIcon);
+					}
 				}
 			}
 
-			var flags3 = SHGFI_ICON | SHGFI_LARGEICON;
-			if (useFileAttributes) flags3 |= SHGFI_USEFILEATTRIBUTES;
-			SHFILEINFO shinfo3 = new();
-			IntPtr hImg3 = SHGetFileInfo(path, attr, ref shinfo3, (uint)Marshal.SizeOf(shinfo3), flags3);
-			if (hImg3 != IntPtr.Zero) {
-				var icon = Imaging.CreateBitmapSourceFromHIcon(shinfo3.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-				_ = DestroyIcon(shinfo3.hIcon);
+			if (icon != null) {
 				icon.Freeze();
-				return icon;
+				lock (_cacheLock) {
+					if (_iconCache.Count >= MaxCacheSize) _iconCache.Clear();
+					_iconCache[cacheKey] = icon;
+				}
 			}
 
-			return null;
+			return icon;
 		}
 
 		[DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]

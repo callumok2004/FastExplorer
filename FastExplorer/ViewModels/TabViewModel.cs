@@ -1,11 +1,16 @@
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+
+using CommunityToolkit.HighPerformance.Buffers;
+
 using FastExplorer.Helpers;
 
 namespace FastExplorer.ViewModels {
@@ -123,8 +128,7 @@ namespace FastExplorer.ViewModels {
 						var list = new System.Collections.Specialized.StringCollection();
 						list.AddRange([.. itemsToCopy]);
 						Clipboard.SetFileDropList(list);
-						
-						// Also set with DropEffect for "Copy" (2)
+
 						var data = new DataObject();
 						data.SetFileDropList(list);
 						data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(2)));
@@ -145,7 +149,8 @@ namespace FastExplorer.ViewModels {
 								if (bytes.Length > 0 && bytes[0] == 5) isMove = true;
 							}
 						}
-					} catch {}
+					}
+					catch { }
 
 					foreach (string? sourcePath in files) {
 						if (sourcePath == null) continue;
@@ -178,7 +183,7 @@ namespace FastExplorer.ViewModels {
 								"Rename",
 								MessageBoxButton.YesNo,
 								MessageBoxImage.Warning);
-							
+
 							if (result != MessageBoxResult.Yes) {
 								item.RenameText = item.Name;
 								return;
@@ -285,11 +290,17 @@ namespace FastExplorer.ViewModels {
 				if (SetProperty(ref _searchText, value)) {
 					OnPropertyChanged(nameof(IsSearchActive));
 					CommandManager.InvalidateRequerySuggested();
-					
+
 					_searchCts?.Cancel();
 					if (string.IsNullOrWhiteSpace(value)) {
 						IsSearching = false;
+						bool shouldGc = Files.Count > 2000;
 						FilterFiles();
+						if (shouldGc) {
+							GC.Collect();
+							GC.WaitForPendingFinalizers();
+							GC.Collect();
+						}
 					}
 					else {
 						_searchCts = new CancellationTokenSource();
@@ -523,8 +534,8 @@ namespace FastExplorer.ViewModels {
 				Icon = IconHelper.GetFolderIcon(Environment.GetFolderPath(Environment.SpecialFolder.MyComputer), false, 16);
 			}
 			else {
-				TabName = new DirectoryInfo(path).Name;
-				if (string.IsNullOrEmpty(TabName)) TabName = path;
+				string name = new DirectoryInfo(path).Name;
+				TabName = StringPool.Shared.GetOrAdd(string.IsNullOrEmpty(name) ? path : name);
 				Icon = IconHelper.GetFolderIcon(path, false, 16);
 			}
 
@@ -565,8 +576,8 @@ namespace FastExplorer.ViewModels {
 				var path = _backHistory.Pop();
 				_isNavigating = true;
 				CurrentPath = path;
-				TabName = path == "This PC" ? "This PC" : new DirectoryInfo(path).Name;
-				if (string.IsNullOrEmpty(TabName)) TabName = path;
+				string name = path == "This PC" ? "This PC" : new DirectoryInfo(path).Name;
+				TabName = StringPool.Shared.GetOrAdd(string.IsNullOrEmpty(name) ? path : name);
 				Icon = IconHelper.GetFolderIcon(path == "This PC" ? Environment.GetFolderPath(Environment.SpecialFolder.MyComputer) : path, false, 16);
 				_isNavigating = false;
 				_ = LoadFilesAsync(path);
@@ -579,8 +590,8 @@ namespace FastExplorer.ViewModels {
 				var path = _forwardHistory.Pop();
 				_isNavigating = true;
 				CurrentPath = path;
-				TabName = path == "This PC" ? "This PC" : new DirectoryInfo(path).Name;
-				if (string.IsNullOrEmpty(TabName)) TabName = path;
+				string name = path == "This PC" ? "This PC" : new DirectoryInfo(path).Name;
+				TabName = StringPool.Shared.GetOrAdd(string.IsNullOrEmpty(name) ? path : name);
 				Icon = IconHelper.GetFolderIcon(path == "This PC" ? Environment.GetFolderPath(Environment.SpecialFolder.MyComputer) : path, false, 16);
 				_isNavigating = false;
 				_ = LoadFilesAsync(path);
@@ -653,11 +664,7 @@ namespace FastExplorer.ViewModels {
 				_allFiles = fileList;
 
 				Application.Current.Dispatcher.Invoke(() => {
-					var toRemove = Files.Where(x => !_allFiles.Contains(x)).ToList();
-					foreach (var item in toRemove) _ = Files.Remove(item);
-
-					var toAdd = _allFiles.Where(x => !Files.Contains(x)).ToList();
-					foreach (var item in toAdd) Files.Add(item);
+					Files = new ObservableCollection<FileItemViewModel>(_allFiles);
 
 					ApplySort();
 
@@ -689,93 +696,128 @@ namespace FastExplorer.ViewModels {
 			_searchCts = new CancellationTokenSource();
 			var token = _searchCts.Token;
 
+			var searchSw = Stopwatch.StartNew();
+
 			StatusText = "Searching...";
 			IsSearching = true;
 			Files.Clear();
 
-			try {
-				await Task.Run(() => {
-					var options = new EnumerationOptions {
-						IgnoreInaccessible = true,
-						RecurseSubdirectories = false,
-						AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
-						ReturnSpecialDirectories = false
-					};
+			var resultsChannel = Channel.CreateUnbounded<FileItemViewModel>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+			var folders = new ConcurrentQueue<string>();
 
-					var queue = new Queue<string>();
-					if (_currentPath == "This PC") {
-						foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
-							queue.Enqueue(drive.RootDirectory.FullName);
+			if (_currentPath == "This PC") {
+				foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
+					folders.Enqueue(drive.RootDirectory.FullName);
+				}
+			}
+			else {
+				folders.Enqueue(_currentPath);
+			}
+
+			int activeWorkers = 0;
+			int totalFound = 0;
+
+			var consumerTask = Task.Run(async () => {
+				var batch = new List<FileItemViewModel>();
+				var timer = Stopwatch.StartNew();
+
+				try {
+					while (await resultsChannel.Reader.WaitToReadAsync(token)) {
+						while (resultsChannel.Reader.TryRead(out var item)) {
+							batch.Add(item);
+							if (batch.Count >= 20 || timer.ElapsedMilliseconds > 40) {
+								var update = batch.ToList();
+								batch.Clear();
+								timer.Restart();
+								await Application.Current.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() => {
+									if (token.IsCancellationRequested) return;
+									foreach (var i in update) Files.Add(i);
+									StatusText = $"Searching... Found {Files.Count} items";
+									ItemCount = Files.Count;
+								}));
+							}
 						}
 					}
-					else {
-						queue.Enqueue(_currentPath);
-					}
+				}
+				catch (OperationCanceledException) { }
 
-					var batch = new List<FileItemViewModel>();
-					int foundCount = 0;
-					var lastFlush = DateTime.Now;
-
-					while (queue.Count > 0) {
+				if (batch.Count > 0) {
+					await Application.Current.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() => {
 						if (token.IsCancellationRequested) return;
-						if (AppSettings.Current.MaxSearchResults > 0 && foundCount >= AppSettings.Current.MaxSearchResults) break;
+						foreach (var i in batch) Files.Add(i);
+						StatusText = $"Found {Files.Count} items";
+						ItemCount = Files.Count;
+					}));
+				}
+			}, token);
 
-						string currentPath = queue.Dequeue();
+			int maxConcurrency = Math.Max(4, Environment.ProcessorCount);
+			var producers = Enumerable.Range(0, maxConcurrency).Select(_ => Task.Run(async () => {
+				try {
+					var opts = new EnumerationOptions {
+						IgnoreInaccessible = true,
+						ReturnSpecialDirectories = false,
+						AttributesToSkip = FileAttributes.Hidden | FileAttributes.System
+					};
 
-						try {
-							var dirInfo = new DirectoryInfo(currentPath);
-							foreach (var item in dirInfo.EnumerateFileSystemInfos("*", options)) {
-								if (token.IsCancellationRequested) return;
+					while (!token.IsCancellationRequested) {
+						if (folders.TryDequeue(out var dir)) {
+							Interlocked.Increment(ref activeWorkers);
+							try {
+								var dirInfo = new DirectoryInfo(dir);
+								foreach (var entry in dirInfo.EnumerateFileSystemInfos("*", opts)) {
+									if (token.IsCancellationRequested) break;
 
-								if (item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)) {
-									if (item is DirectoryInfo d) batch.Add(new FolderItemViewModel(d));
-									else if (item is FileInfo f) batch.Add(new FileItemViewModel(f));
-									foundCount++;
+									bool isDir = (entry.Attributes & FileAttributes.Directory) == FileAttributes.Directory;
+									if ((entry.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint) continue;
 
-									bool shouldFlush = false;
-									if (foundCount <= 20) shouldFlush = true;
-									else if ((DateTime.Now - lastFlush).TotalMilliseconds > 100 && batch.Count > 0) shouldFlush = true;
-									else if (batch.Count >= 50) shouldFlush = true;
-
-									if (shouldFlush) {
-										var batchCopy = batch.ToList();
-										batch.Clear();
-										lastFlush = DateTime.Now;
-										_ = (Application.Current?.Dispatcher.BeginInvoke(() => {
-											foreach (var i in batchCopy) Files.Add(i);
-											StatusText = $"Searching... Found {Files.Count} items";
-											ItemCount = Files.Count;
-										}));
+									if (isDir) {
+										folders.Enqueue(entry.FullName);
 									}
 
-									if (AppSettings.Current.MaxSearchResults > 0 && foundCount >= AppSettings.Current.MaxSearchResults) break;
-								}
+									var nameSpan = entry.Name.AsSpan();
+									if (nameSpan.Contains(query.AsSpan(), StringComparison.OrdinalIgnoreCase)) {
+										if (AppSettings.Current.MaxSearchResults > 0 && totalFound >= AppSettings.Current.MaxSearchResults) {
+											_searchCts.Cancel();
+											break;
+										}
 
-								if (item is DirectoryInfo subDir) {
-									if ((subDir.Attributes & FileAttributes.ReparsePoint) != FileAttributes.ReparsePoint) {
-										queue.Enqueue(subDir.FullName);
+										Interlocked.Increment(ref totalFound);
+
+										FileItemViewModel? vm = null;
+										if (isDir) vm = new FolderItemViewModel((DirectoryInfo)entry, false);
+										else vm = new FileItemViewModel((FileInfo)entry, false);
+
+										resultsChannel.Writer.TryWrite(vm);
 									}
 								}
 							}
+							catch { }
+							finally {
+								Interlocked.Decrement(ref activeWorkers);
+							}
 						}
-						catch { }
+						else {
+							if (activeWorkers == 0 && folders.IsEmpty) break;
+							await Task.Delay(10, token);
+						}
 					}
+				}
+				catch (OperationCanceledException) { }
+			})).ToArray();
 
-					if (batch.Count > 0) {
-						_ = (Application.Current?.Dispatcher.BeginInvoke(() => {
-							foreach (var i in batch) Files.Add(i);
-							StatusText = $"Found {Files.Count} items";
-							ItemCount = Files.Count;
-						}));
-					}
-				}, token);
+			try {
+				await Task.WhenAll(producers);
+				resultsChannel.Writer.Complete();
+				await consumerTask;
 			}
-			catch (TaskCanceledException) { }
+			catch (OperationCanceledException) { }
 			finally {
 				if (!token.IsCancellationRequested) {
 					IsSearching = false;
 					Application.Current?.Dispatcher.Invoke(ApplySort);
-					StatusText = $"Found {Files.Count} items";
+					searchSw.Stop();
+					StatusText = $"Found {Files.Count} items ({searchSw.Elapsed.TotalSeconds:N2}s)";
 					ItemCount = Files.Count;
 				}
 			}
