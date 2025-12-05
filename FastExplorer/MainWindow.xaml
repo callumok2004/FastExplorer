@@ -4,6 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:FastExplorer"
+    xmlns:converters="clr-namespace:FastExplorer.Converters"
+    xmlns:helpers="clr-namespace:FastExplorer.Helpers"
+    xmlns:viewmodels="clr-namespace:FastExplorer.ViewModels"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="FastExplorer"
     Width="1100"
@@ -43,14 +46,14 @@
         <SolidColorBrush x:Key="ActiveTabBackground" Color="#2D2D2D" />
         <SolidColorBrush x:Key="InactiveTabBackground" Color="#202020" />
 
-        <local:PercentToColorConverter x:Key="PercentToColorConverter" />
-        <local:MathConverter x:Key="MathConverter" />
-        <local:BindingProxy x:Key="WindowProxy" Data="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
-        <local:PinnedToVisibilityConverter x:Key="PinnedToVisibilityConverter" />
-        <local:NullToVisibilityConverter x:Key="NullToVis" />
-        <local:CountToBoolConverter x:Key="CountToBoolConverter" />
-        <local:DateToGroupHeaderConverter x:Key="DateToGroupHeaderConverter" />
-        <local:UniversalBoolToVisibilityConverter x:Key="BoolToVis" />
+        <converters:PercentToColorConverter x:Key="PercentToColorConverter" />
+        <converters:MathConverter x:Key="MathConverter" />
+        <helpers:BindingProxy x:Key="WindowProxy" Data="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
+        <converters:PinnedToVisibilityConverter x:Key="PinnedToVisibilityConverter" />
+        <converters:NullToVisibilityConverter x:Key="NullToVis" />
+        <converters:CountToBoolConverter x:Key="CountToBoolConverter" />
+        <converters:DateToGroupHeaderConverter x:Key="DateToGroupHeaderConverter" />
+        <converters:UniversalBoolToVisibilityConverter x:Key="BoolToVis" />
 
         <Style x:Key="RoundedProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="10" />
@@ -567,11 +570,26 @@
                                                 <Style TargetType="TextBlock">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                            <Setter Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="45" />
-                                                                </Setter.Value>
-                                                            </Setter>
+                                                            <DataTrigger.EnterActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation
+                                                                            Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
+                                                                            To="90"
+                                                                            Duration="0:0:0.1" />
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.EnterActions>
+                                                            <DataTrigger.ExitActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation
+                                                                            Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
+                                                                            To="0"
+                                                                            Duration="0:0:0.1" />
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.ExitActions>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>

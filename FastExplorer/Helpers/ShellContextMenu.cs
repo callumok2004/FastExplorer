@@ -6,7 +6,7 @@ using System.Windows.Media;
 using System.Windows.Interop;
 using System.Windows;
 
-namespace FastExplorer {
+namespace FastExplorer.Helpers {
 	public class ShellContextMenu {
 		#region Interop
 
