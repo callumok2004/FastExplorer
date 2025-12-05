@@ -26,10 +26,22 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _systemStatus, value);
 		}
 
+		public bool IsDebug {
+			get {
+#if DEBUG
+				return true;
+#else
+				return false;
+#endif
+			}
+		}
+
+#if DEBUG
 		private readonly System.Windows.Threading.DispatcherTimer _statusTimer;
 		private readonly Process _currentProcess;
 		private TimeSpan _lastProcessorTime;
 		private DateTime _lastTimerTick;
+#endif
 
 		public MainViewModel() {
 			_drives = [];
@@ -75,8 +87,8 @@ namespace FastExplorer.ViewModels {
 			AddTab();
 		}
 
-		private void UpdateSystemStatus(object? sender, EventArgs e) {
 #if DEBUG
+		private void UpdateSystemStatus(object? sender, EventArgs e) {
 			try {
 				_currentProcess.Refresh();
 				var now = DateTime.Now;
@@ -89,8 +101,8 @@ namespace FastExplorer.ViewModels {
 				SystemStatus = $"CPU: {cpuUsage:0}%   Mem: {FileItemViewModel.FormatSize(memory)}";
 			}
 			catch { }
-#endif
 		}
+#endif
 
 		private void MovePin(object? param, int direction) {
 			string? path = null;

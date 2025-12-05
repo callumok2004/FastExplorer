@@ -1892,7 +1892,8 @@
                     Grid.Column="1"
                     FontSize="12"
                     Foreground="{StaticResource TextSecondary}"
-                    Text="{Binding SystemStatus}" />
+                    Text="{Binding SystemStatus}"
+                    Visibility="{Binding IsDebug, Converter={StaticResource BoolToVis}}" />
             </Grid>
         </Border>
     </Grid>
