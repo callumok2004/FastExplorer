@@ -605,7 +605,9 @@ namespace FastExplorer.ViewModels {
 				}
 				else {
 					try {
-						_ = Process.Start(new ProcessStartInfo(fileItem.FullPath) { UseShellExecute = true });
+						var psi = new ProcessStartInfo(fileItem.FullPath) { UseShellExecute = true };
+						psi.WorkingDirectory = Path.GetDirectoryName(fileItem.FullPath);
+						_ = Process.Start(psi);
 					}
 					catch (Exception ex) {
 						_ = MessageBox.Show($"Error opening file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
