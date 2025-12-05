@@ -828,5 +828,17 @@ namespace FastExplorer {
 				}
 			}
 		}
+
+		private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+			if (sender is ScrollViewer scrollViewer) {
+				if (e.Delta > 0) {
+					scrollViewer.LineLeft();
+				}
+				else {
+					scrollViewer.LineRight();
+				}
+				e.Handled = true;
+			}
+		}
 	}
 }

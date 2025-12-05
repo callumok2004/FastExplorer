@@ -1054,25 +1054,30 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel
+            <ScrollViewer
                 Grid.Column="0"
-                Margin="10,0,0,-1"
+                Margin="10,0,140,-1"
                 VerticalAlignment="Bottom"
-                Orientation="Horizontal"
-                WindowChrome.IsHitTestVisibleInChrome="True">
-                <ListBox
-                    Margin="0"
-                    Padding="0"
-                    VerticalAlignment="Bottom"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    ItemsSource="{Binding Tabs}"
-                    SelectedItem="{Binding SelectedTab}">
-                    <ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>
+                HorizontalScrollBarVisibility="Hidden"
+                VerticalScrollBarVisibility="Disabled"
+                WindowChrome.IsHitTestVisibleInChrome="True"
+                PreviewMouseWheel="ScrollViewer_PreviewMouseWheel">
+                <StackPanel Orientation="Horizontal">
+                    <ListBox
+                        Margin="0"
+                        Padding="0"
+                        VerticalAlignment="Bottom"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ItemsSource="{Binding Tabs}"
+                        SelectedItem="{Binding SelectedTab}"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <EventSetter Event="MouseDown" Handler="TabItem_MouseDown" />
@@ -1178,7 +1183,8 @@
                     Command="{Binding AddTabCommand}"
                     Content="&#xE710;"
                     Style="{StaticResource NavButtonStyle}" />
-            </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <Border
