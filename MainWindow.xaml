@@ -1,0 +1,1823 @@
+﻿<Window
+    x:Class="FastExplorer.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:FastExplorer"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="FastExplorer"
+    Width="1100"
+    Height="700"
+    Background="Transparent"
+    FontFamily="Segoe UI Variable, Segoe UI, Segoe WP, System-ui, Sans-serif"
+    Foreground="#FFFFFF"
+    mc:Ignorable="d">
+
+    <Window.InputBindings>
+        <KeyBinding Key="C" Modifiers="Control" Command="{Binding SelectedTab.CopyCommand}" />
+        <KeyBinding Key="X" Modifiers="Control" Command="{Binding SelectedTab.CutCommand}" />
+        <KeyBinding Key="V" Modifiers="Control" Command="{Binding SelectedTab.PasteCommand}" />
+        <KeyBinding Key="Delete" Command="{Binding SelectedTab.DeleteCommand}" />
+        <KeyBinding Key="F2" Command="{Binding SelectedTab.RenameCommand}" />
+    </Window.InputBindings>
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome
+            CaptionHeight="40"
+            CornerRadius="0"
+            GlassFrameThickness="-1"
+            ResizeBorderThickness="4" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="AppBackground" Color="#00000000" />
+        <SolidColorBrush x:Key="PanelBackground" Color="#202020" />
+        <SolidColorBrush x:Key="HeaderBackground" Color="#2C2C2C" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#353535" />
+        <SolidColorBrush x:Key="HoverBrush" Color="#3A3A3A" />
+        <SolidColorBrush x:Key="SelectedBrush" Color="#454545" />
+        <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextSecondary" Color="#D0D0D0" />
+        <SolidColorBrush x:Key="ActiveTabBackground" Color="#2D2D2D" />
+        <SolidColorBrush x:Key="InactiveTabBackground" Color="#202020" />
+
+        <local:PercentToColorConverter x:Key="PercentToColorConverter" />
+        <local:MathConverter x:Key="MathConverter" />
+        <local:BindingProxy x:Key="WindowProxy" Data="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
+        <local:PinnedToVisibilityConverter x:Key="PinnedToVisibilityConverter" />
+        <local:NullToVisibilityConverter x:Key="NullToVis" />
+        <local:CountToBoolConverter x:Key="CountToBoolConverter" />
+        <local:DateToGroupHeaderConverter x:Key="DateToGroupHeaderConverter" />
+        <local:UniversalBoolToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="RoundedProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="10" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#333333" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border
+                                Name="PART_Track"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5" />
+                            <Border
+                                Name="PART_Indicator"
+                                HorizontalAlignment="Left"
+                                Background="{TemplateBinding Foreground}"
+                                CornerRadius="5" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="SearchItemTemplate">
+            <Grid Height="52" Margin="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image
+                    Width="32"
+                    Height="32"
+                    Margin="6,0,12,0"
+                    VerticalAlignment="Center"
+                    Source="{Binding Icon}" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Foreground="{StaticResource TextPrimary}"
+                        Text="{Binding Name}" />
+                    <TextBlock
+                        FontSize="11"
+                        Foreground="{StaticResource TextSecondary}"
+                        Opacity="0.8"
+                        Text="{Binding FullPath}"
+                        TextTrimming="CharacterEllipsis" />
+                    <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                        <TextBlock
+                            Margin="0,0,10,0"
+                            FontSize="11"
+                            Foreground="{StaticResource TextSecondary}"
+                            Opacity="0.6"
+                            Text="{Binding DisplaySize}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock
+                            FontSize="11"
+                            Foreground="{StaticResource TextSecondary}"
+                            Opacity="0.6"
+                            Text="{Binding DateModified}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="IconItemTemplate">
+            <Grid
+                Width="{Binding DataContext.ItemSize, RelativeSource={RelativeSource AncestorType=ListView}}"
+                Margin="4"
+                HorizontalAlignment="Center"
+                Background="Transparent">
+                <Grid.ToolTip>
+                    <ToolTip>
+                        <StackPanel>
+                            <TextBlock FontWeight="Bold" Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Type}" />
+                            <TextBlock Text="{Binding DisplaySize}" />
+                            <TextBlock Text="{Binding DateModifiedString}" />
+                        </StackPanel>
+                    </ToolTip>
+                </Grid.ToolTip>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Image
+                    Width="{Binding DataContext.ItemSize, RelativeSource={RelativeSource AncestorType=ListView}, Converter={StaticResource MathConverter}, ConverterParameter=0.8}"
+                    Height="{Binding DataContext.ItemSize, RelativeSource={RelativeSource AncestorType=ListView}, Converter={StaticResource MathConverter}, ConverterParameter=0.8}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Source="{Binding Icon}" />
+                <Grid Grid.Row="1" Margin="0,4,0,0" HorizontalAlignment="Center">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Foreground="{StaticResource TextPrimary}"
+                        Text="{Binding Name}"
+                        TextAlignment="Center"
+                        TextTrimming="CharacterEllipsis"
+                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}" />
+                    <TextBox
+                        MinWidth="60"
+                        MaxWidth="180"
+                        HorizontalContentAlignment="Center"
+                        Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
+                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
+                        LostFocus="RenameTextBox_LostFocus">
+                        <TextBox.InputBindings>
+                            <KeyBinding
+                                Key="Enter"
+                                Command="{Binding DataContext.CommitRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                CommandParameter="{Binding}" />
+                            <KeyBinding
+                                Key="Escape"
+                                Command="{Binding DataContext.CancelRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                CommandParameter="{Binding}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <Style x:Key="MenuIconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Width" Value="50" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter HorizontalAlignment="Center" Content="{TemplateBinding Content}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    HorizontalAlignment="Center"
+                                    FontFamily="Segoe UI"
+                                    FontSize="10"
+                                    Text="{Binding ToolTip, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1AFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NavButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1AFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AddressBarStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1F1F1F" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="5,0,10,0" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#151515" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsPathEditing}" Value="True">
+                    <Setter Property="Background" Value="#151515" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SearchBarStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1F1F1F" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,6" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#151515" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=SearchBox}" Value="True">
+                    <Setter Property="Background" Value="#151515" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ContextMenuSeparatorStyle" TargetType="Separator">
+            <Setter Property="Background" Value="#454545" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border
+                            Height="{TemplateBinding Height}"
+                            Background="{TemplateBinding Background}"
+                            SnapsToDevicePixels="true" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DefaultContextMenuStyle" TargetType="ContextMenu">
+            <Style.Resources>
+                <Style BasedOn="{StaticResource ContextMenuSeparatorStyle}" TargetType="Separator" />
+            </Style.Resources>
+            <EventSetter Event="Opened" Handler="ContextMenu_Opened" />
+            <Setter Property="Background" Value="{x:Null}" />
+            <Setter Property="BorderBrush" Value="#454545" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HasDropShadow" Value="False" />
+            <Setter Property="Padding" Value="0,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border
+                            Padding="{TemplateBinding Padding}"
+                            Background="#01000000"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                            <ItemsPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style BasedOn="{StaticResource DefaultContextMenuStyle}" TargetType="ContextMenu" />
+
+        <Style TargetType="MenuItem">
+            <EventSetter Event="SubmenuOpened" Handler="MenuItem_SubmenuOpened" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border
+                            x:Name="Bd"
+                            Margin="4,0"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter
+                                    x:Name="Icon"
+                                    Width="16"
+                                    Height="16"
+                                    Margin="0,0,12,0"
+                                    VerticalAlignment="Center"
+                                    ContentSource="Icon" />
+                                <ContentPresenter
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    ContentSource="Header" />
+                                <Path
+                                    x:Name="Arrow"
+                                    Grid.Column="2"
+                                    Margin="10,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Data="M0,0 L4,4 L0,8"
+                                    Stroke="{TemplateBinding Foreground}"
+                                    StrokeThickness="1"
+                                    Visibility="Collapsed" />
+
+                                <Popup
+                                    x:Name="Popup"
+                                    AllowsTransparency="True"
+                                    Focusable="False"
+                                    IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                    Placement="Right"
+                                    PopupAnimation="Fade">
+                                    <Border
+                                        x:Name="SubmenuBorder"
+                                        Padding="0,4"
+                                        Background="#01000000"
+                                        BorderBrush="#454545"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1AFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="Icon" Value="{x:Null}">
+                                <Setter TargetName="Icon" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Background" Value="#454545" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border
+                            Height="{TemplateBinding Height}"
+                            Background="{TemplateBinding Background}"
+                            SnapsToDevicePixels="true" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style
+            x:Key="RefreshButtonStyle"
+            BasedOn="{StaticResource NavButtonStyle}"
+            TargetType="Button">
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock
+                            FontFamily="Segoe Fluent Icons"
+                            RenderTransformOrigin="0.5,0.5"
+                            Text="{Binding}">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform Angle="0" />
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.IsRefreshing, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation
+                                                            RepeatBehavior="Forever"
+                                                            Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
+                                                            From="0"
+                                                            To="360"
+                                                            Duration="0:0:0.5" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation
+                                                            Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
+                                                            To="0"
+                                                            Duration="0:0:0.2" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid
+                            x:Name="GridRoot"
+                            Width="12"
+                            Background="{TemplateBinding Background}">
+                            <Track
+                                x:Name="PART_Track"
+                                Focusable="false"
+                                IsDirectionReversed="true">
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border
+                                                    Margin="2"
+                                                    Background="#555"
+                                                    CornerRadius="6" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TreeView">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        </Style>
+
+        <Style TargetType="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="5,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <EventSetter Event="MouseLeftButtonUp" Handler="TreeViewItem_MouseLeftButtonUp" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+
+                            <Border
+                                x:Name="Bd"
+                                Grid.ColumnSpan="2"
+                                Margin="2,1"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" />
+
+                            <ToggleButton
+                                x:Name="Expander"
+                                Width="20"
+                                Height="20"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ClickMode="Press"
+                                Content="&#xE76C;"
+                                FontFamily="Segoe Fluent Icons"
+                                Foreground="{StaticResource TextSecondary}"
+                                IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontFamily="Segoe Fluent Icons"
+                                            FontSize="10"
+                                            Foreground="{TemplateBinding Foreground}"
+                                            RenderTransformOrigin="0.5,0.5"
+                                            Text="{TemplateBinding Content}">
+                                            <TextBlock.RenderTransform>
+                                                <RotateTransform Angle="0" />
+                                            </TextBlock.RenderTransform>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="45" />
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <ContentPresenter
+                                x:Name="PART_Header"
+                                Grid.Column="1"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                ContentSource="Header" />
+
+                            <ItemsPresenter
+                                x:Name="ItemsHost"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="false">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="false">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="true" />
+                                    <Condition Property="IsSelectionActive" Value="false" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ContextMenu x:Key="FileItemContextMenu" x:Shared="False">
+            <ContextMenu.Style>
+                <Style BasedOn="{StaticResource {x:Type ContextMenu}}" TargetType="ContextMenu">
+                    <EventSetter Event="Opened" Handler="ContextMenu_Opened" />
+                </Style>
+            </ContextMenu.Style>
+            <MenuItem Focusable="False" StaysOpenOnClick="True">
+                <MenuItem.Template>
+                    <ControlTemplate>
+                        <Border Margin="0,0,0,4" Background="Transparent">
+                            <StackPanel
+                                Margin="4,0"
+                                HorizontalAlignment="Left"
+                                Orientation="Horizontal">
+                                <Button
+                                    Command="{Binding PlacementTarget.Tag.CutCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    CommandParameter="{Binding}"
+                                    Content="&#xE8C6;"
+                                    Style="{StaticResource MenuIconButtonStyle}"
+                                    ToolTip="Cut"
+                                    Click="MenuItemButton_Click" />
+                                <Button
+                                    Command="{Binding PlacementTarget.Tag.CopyCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    CommandParameter="{Binding}"
+                                    Content="&#xE8C8;"
+                                    Style="{StaticResource MenuIconButtonStyle}"
+                                    ToolTip="Copy"
+                                    Click="MenuItemButton_Click" />
+                                <Button
+                                    Command="{Binding PlacementTarget.Tag.RenameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    CommandParameter="{Binding}"
+                                    Content="&#xE8AC;"
+                                    Style="{StaticResource MenuIconButtonStyle}"
+                                    ToolTip="Rename"
+                                    Click="MenuItemButton_Click" />
+                                <Button
+                                    Command="{Binding PlacementTarget.Tag.ShareCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    CommandParameter="{Binding}"
+                                    Content="&#xE72D;"
+                                    Style="{StaticResource MenuIconButtonStyle}"
+                                    ToolTip="Share"
+                                    Click="MenuItemButton_Click" />
+                                <Button
+                                    Command="{Binding PlacementTarget.Tag.DeleteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    CommandParameter="{Binding}"
+                                    Content="&#xE74D;"
+                                    Style="{StaticResource MenuIconButtonStyle}"
+                                    ToolTip="Delete"
+                                    Click="MenuItemButton_Click" />
+                            </StackPanel>
+                        </Border>
+                    </ControlTemplate>
+                </MenuItem.Template>
+            </MenuItem>
+            <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
+            <MenuItem
+                Command="{Binding PlacementTarget.Tag.OpenCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                CommandParameter="{Binding}"
+                Header="Open">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
+                Command="{Binding Data.DataContext.PinToQuickAccessCommand, Source={StaticResource WindowProxy}}"
+                CommandParameter="{Binding}"
+                Header="Pin to Quick Access"
+                Visibility="{Binding FullPath, Converter={StaticResource PinnedToVisibilityConverter}, ConverterParameter=Invert}">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE718;" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
+                Command="{Binding Data.DataContext.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
+                CommandParameter="{Binding}"
+                Header="Unpin from Quick Access"
+                Visibility="{Binding FullPath, Converter={StaticResource PinnedToVisibilityConverter}}">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE77A;" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
+                Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                CommandParameter="{Binding}"
+                Header="Copy as path">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8C8;" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
+                Command="{Binding PlacementTarget.Tag.PropertiesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                CommandParameter="{Binding}"
+                Header="Properties">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE946;" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <Style x:Key="TileViewItemStyle" TargetType="ListViewItem">
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border
+                            x:Name="Bd"
+                            Margin="2,1"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4">
+                            <ContentPresenter
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTip">
+                <Setter.Value>
+                    <ToolTip>
+                        <StackPanel>
+                            <TextBlock FontWeight="Bold" Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Type}" />
+                            <TextBlock Text="{Binding DisplaySize}" />
+                            <TextBlock Text="{Binding DateModifiedString}" />
+                        </StackPanel>
+                    </ToolTip>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+        </Style>
+
+        <Style TargetType="ListView">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="View">
+                <Setter.Value>
+                    <GridView>
+                        <GridViewColumn Width="350" Header="Name">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image
+                                            Width="16"
+                                            Height="16"
+                                            Margin="0,0,8,0"
+                                            Source="{Binding Icon}" />
+                                        <Grid>
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                Foreground="{StaticResource TextPrimary}"
+                                                Text="{Binding Name}"
+                                                Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}" />
+                                            <TextBox
+                                                MinWidth="150"
+                                                VerticalAlignment="Center"
+                                                Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
+                                                Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
+                                                LostFocus="RenameTextBox_LostFocus">
+                                                <TextBox.InputBindings>
+                                                    <KeyBinding
+                                                        Key="Enter"
+                                                        Command="{Binding DataContext.CommitRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                        CommandParameter="{Binding}" />
+                                                    <KeyBinding
+                                                        Key="Escape"
+                                                        Command="{Binding DataContext.CancelRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                        CommandParameter="{Binding}" />
+                                                </TextBox.InputBindings>
+                                            </TextBox>
+                                        </Grid>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn
+                            Width="180"
+                            DisplayMemberBinding="{Binding DateModifiedString}"
+                            Header="Date modified" />
+                        <GridViewColumn
+                            Width="120"
+                            DisplayMemberBinding="{Binding Type}"
+                            Header="Type" />
+                        <GridViewColumn
+                            Width="100"
+                            DisplayMemberBinding="{Binding DisplaySize}"
+                            Header="Size" />
+                    </GridView>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDetailsView}" Value="False">
+                    <Setter Property="View" Value="{x:Null}" />
+                    <Setter Property="ItemContainerStyle" Value="{StaticResource TileViewItemStyle}" />
+                    <Setter Property="ItemTemplate" Value="{StaticResource IconItemTemplate}" />
+                    <Setter Property="ItemsPanel">
+                        <Setter.Value>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding TabName}" Value="This PC">
+                    <Setter Property="View" Value="{x:Null}" />
+                    <Setter Property="ItemContainerStyle" Value="{StaticResource TileViewItemStyle}" />
+                    <Setter Property="ItemTemplate">
+                        <Setter.Value>
+                            <DataTemplate>
+                                <Grid
+                                    Width="260"
+                                    Height="60"
+                                    Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Image
+                                        Width="40"
+                                        Height="40"
+                                        Margin="4,0,12,0"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Icon}" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Foreground="{StaticResource TextPrimary}"
+                                            Text="{Binding Name}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <ProgressBar
+                                            Margin="0,6,10,4"
+                                            Foreground="{Binding PercentUsed, Converter={StaticResource PercentToColorConverter}}"
+                                            Maximum="100"
+                                            Style="{StaticResource RoundedProgressBarStyle}"
+                                            Value="{Binding PercentUsed, Mode=OneWay}" />
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{StaticResource TextSecondary}"
+                                            Text="{Binding FreeSpaceText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ItemsPanel">
+                        <Setter.Value>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSearchActive}" Value="True">
+                    <Setter Property="View" Value="{x:Null}" />
+                    <Setter Property="ItemContainerStyle" Value="{StaticResource TileViewItemStyle}" />
+                    <Setter Property="ItemTemplate" Value="{StaticResource SearchItemTemplate}" />
+                    <Setter Property="ItemsPanel">
+                        <Setter.Value>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel IsVirtualizing="True" VirtualizationMode="Recycling" />
+                            </ItemsPanelTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="True" />
+                    <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="ListViewItem">
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border
+                            x:Name="Bd"
+                            Margin="2,1"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4">
+                            <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="5,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTip">
+                <Setter.Value>
+                    <ToolTip>
+                        <StackPanel>
+                            <TextBlock FontWeight="Bold" Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Type}" />
+                            <TextBlock Text="{Binding DisplaySize}" />
+                            <TextBlock Text="{Binding DateModifiedString}" />
+                        </StackPanel>
+                    </ToolTip>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+        </Style>
+
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border
+                            x:Name="HeaderBorder"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}">
+                            <TextBlock FontWeight="SemiBold" Text="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{StaticResource HoverBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                <Setter Property="Cursor" Value="Hand" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <EventSetter Event="Click" Handler="GridViewColumnHeader_Click" />
+        </Style>
+
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            Grid.Row="0"
+            Height="40"
+            Background="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel
+                Grid.Column="0"
+                Margin="10,0,0,-1"
+                VerticalAlignment="Bottom"
+                Orientation="Horizontal"
+                WindowChrome.IsHitTestVisibleInChrome="True">
+                <ListBox
+                    Margin="0"
+                    Padding="0"
+                    VerticalAlignment="Bottom"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    ItemsSource="{Binding Tabs}"
+                    SelectedItem="{Binding SelectedTab}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <EventSetter Event="MouseDown" Handler="TabItem_MouseDown" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border
+                                            x:Name="Bd"
+                                            Height="34"
+                                            MinWidth="150"
+                                            MaxWidth="240"
+                                            Margin="0,0,2,0"
+                                            Padding="10,6"
+                                            VerticalAlignment="Bottom"
+                                            Background="{StaticResource InactiveTabBackground}"
+                                            CornerRadius="8,8,0,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Image
+                                                    Width="16"
+                                                    Height="16"
+                                                    Margin="0,0,8,0"
+                                                    VerticalAlignment="Center"
+                                                    Source="{Binding Icon}" />
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    Margin="0,0,5,0"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{StaticResource TextPrimary}"
+                                                    Text="{Binding TabName}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                                <Button
+                                                    x:Name="CloseBtn"
+                                                    Grid.Column="2"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="&#xE711;"
+                                                    FontFamily="Segoe Fluent Icons"
+                                                    FontSize="10"
+                                                    Foreground="{StaticResource TextSecondary}"
+                                                    Visibility="Hidden">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        </Border>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="#33FFFFFF" />
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource ActiveTabBackground}" />
+                                                <Setter TargetName="Bd" Property="CornerRadius" Value="8,8,0,0" />
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                            </Trigger>
+                                            <MultiTrigger>
+                                                <MultiTrigger.Conditions>
+                                                    <Condition Property="IsSelected" Value="True" />
+                                                    <Condition Property="IsMouseOver" Value="True" />
+                                                </MultiTrigger.Conditions>
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource ActiveTabBackground}" />
+                                            </MultiTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <Button
+                    Width="34"
+                    Height="34"
+                    Margin="5,0,0,0"
+                    VerticalAlignment="Bottom"
+                    Command="{Binding AddTabCommand}"
+                    Content="&#xE710;"
+                    Style="{StaticResource NavButtonStyle}" />
+            </StackPanel>
+        </Grid>
+
+        <Border
+            Grid.Row="1"
+            Padding="10,5"
+            Background="{StaticResource ActiveTabBackground}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="0,0,0,1"
+            DataContext="{Binding SelectedTab}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="300" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Margin="0" Orientation="Horizontal">
+                    <Button
+                        Margin="0,0,5,0"
+                        Command="{Binding BackCommand}"
+                        Content="&#xE72B;"
+                        Style="{StaticResource NavButtonStyle}" />
+                    <Button
+                        Margin="0,0,5,0"
+                        Command="{Binding ForwardCommand}"
+                        Content="&#xE72A;"
+                        Style="{StaticResource NavButtonStyle}" />
+                    <Button
+                        Margin="0,0,5,0"
+                        Command="{Binding RefreshCommand}"
+                        Content="&#xE72C;"
+                        Style="{StaticResource RefreshButtonStyle}" />
+                </StackPanel>
+
+                <Border Grid.Column="1" Style="{StaticResource AddressBarStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="1">
+                            <Button
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding TogglePathEditCommand}"
+                                Visibility="{Binding IsPathEditing, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent" />
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <ItemsControl
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                IsHitTestVisible="True"
+                                ItemsSource="{Binding PathSegments}"
+                                Visibility="{Binding IsPathEditing, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock
+                                                x:Name="Sep"
+                                                Margin="2,0"
+                                                VerticalAlignment="Center"
+                                                FontFamily="Segoe Fluent Icons"
+                                                FontSize="8"
+                                                Foreground="{StaticResource TextSecondary}"
+                                                Text="&#xE76C;" />
+                                            <Button
+                                                Margin="0,0,2,0"
+                                                Padding="4,2"
+                                                VerticalAlignment="Center"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Command="{Binding NavigateCommand}"
+                                                CommandParameter="{Binding Path}"
+                                                Content="{Binding Name}"
+                                                Foreground="{StaticResource TextPrimary}">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border
+                                                            x:Name="Bd"
+                                                            Padding="{TemplateBinding Padding}"
+                                                            Background="{TemplateBinding Background}"
+                                                            CornerRadius="4">
+                                                            <ContentPresenter />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                                                <Setter TargetName="Sep" Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBox
+                                x:Name="PathBox"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                CaretBrush="White"
+                                Foreground="{StaticResource TextPrimary}"
+                                LostFocus="PathBox_LostFocus"
+                                Text="{Binding AddressBarText, UpdateSourceTrigger=PropertyChanged}"
+                                Visibility="{Binding IsPathEditing, Converter={StaticResource BoolToVis}}">
+                                <TextBox.InputBindings>
+                                    <KeyBinding
+                                        Key="Enter"
+                                        Command="{Binding NavigateCommand}"
+                                        CommandParameter="{Binding Text, RelativeSource={RelativeSource AncestorType=TextBox}}" />
+                                    <KeyBinding Key="Escape" Command="{Binding TogglePathEditCommand}" />
+                                </TextBox.InputBindings>
+                            </TextBox>
+
+                            <Popup
+                                Width="{Binding ActualWidth, ElementName=PathBox}"
+                                IsOpen="{Binding Suggestions.Count, Converter={StaticResource CountToBoolConverter}, Mode=OneWay}"
+                                PlacementTarget="{Binding ElementName=PathBox}"
+                                StaysOpen="False">
+                                <ListBox
+                                    MaxHeight="200"
+                                    Background="{StaticResource PanelBackground}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    ItemsSource="{Binding Suggestions}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Padding="5" Text="{Binding}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <EventSetter Event="MouseLeftButtonUp" Handler="Suggestion_Click" />
+                                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+                            </Popup>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border
+                    x:Name="SearchBorder"
+                    Grid.Column="2"
+                    Style="{StaticResource SearchBarStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            x:Name="SearchBox"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            CaretBrush="White"
+                            Foreground="{StaticResource TextPrimary}"
+                            Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock
+                            Margin="2,0,0,0"
+                            VerticalAlignment="Center"
+                            Foreground="#888"
+                            IsHitTestVisible="False"
+                            Text="Search">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ProgressBar
+                            Grid.ColumnSpan="2"
+                            Height="2"
+                            Margin="-10,0,-10,-6"
+                            VerticalAlignment="Bottom"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            IsIndeterminate="True"
+                            Visibility="{Binding IsSearching, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid
+            Grid.Row="2"
+            Height="44"
+            Background="#1A1A1A">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel
+                Margin="10,0"
+                DataContext="{Binding SelectedTab}"
+                Orientation="Horizontal">
+
+                <Button
+                    Margin="0,0,5,0"
+                    Padding="8,4"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Command="{Binding PasteCommand}"
+                    ToolTip="Paste">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                x:Name="Bd"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        FontFamily="Segoe Fluent Icons"
+                                        FontSize="14"
+                                        Foreground="{StaticResource TextPrimary}"
+                                        Text="&#xE77F;" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="13"
+                                        Foreground="{StaticResource TextPrimary}"
+                                        Text="Paste" />
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <Button
+                    Margin="0,0,5,0"
+                    Padding="8,4"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OpenContextMenu_Click"
+                    IsEnabled="{Binding CanSortOrView}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                x:Name="Bd"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        FontFamily="Segoe Fluent Icons"
+                                        FontSize="14"
+                                        Foreground="{StaticResource TextPrimary}"
+                                        Text="&#xE8CB;" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="13"
+                                        Foreground="{StaticResource TextPrimary}"
+                                        Text="Sort" />
+                                    <TextBlock
+                                        Margin="8,2,0,0"
+                                        VerticalAlignment="Center"
+                                        FontFamily="Segoe Fluent Icons"
+                                        FontSize="10"
+                                        Foreground="{StaticResource TextSecondary}"
+                                        Text="&#xE70D;" />
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Button.ContextMenu>
+                        <ContextMenu Style="{StaticResource DefaultContextMenuStyle}">
+                            <MenuItem
+                                Command="{Binding SortFilesCommand}"
+                                CommandParameter="Name"
+                                Header="Name" />
+                            <MenuItem
+                                Command="{Binding SortFilesCommand}"
+                                CommandParameter="Date modified"
+                                Header="Date modified" />
+                            <MenuItem
+                                Command="{Binding SortFilesCommand}"
+                                CommandParameter="Type"
+                                Header="Type" />
+                            <MenuItem
+                                Command="{Binding SortFilesCommand}"
+                                CommandParameter="Size"
+                                Header="Size" />
+                            <Separator />
+                            <MenuItem
+                                Command="{Binding SortFilesCommand}"
+                                CommandParameter="Ascending"
+                                Header="Ascending" />
+                            <MenuItem
+                                Command="{Binding SortFilesCommand}"
+                                CommandParameter="Descending"
+                                Header="Descending" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <Button
+                    Padding="8,4"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OpenContextMenu_Click"
+                    IsEnabled="{Binding CanSortOrView}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                x:Name="Bd"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        FontFamily="Segoe Fluent Icons"
+                                        FontSize="14"
+                                        Foreground="{StaticResource TextPrimary}"
+                                        Text="&#xE80A;" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="13"
+                                        Foreground="{StaticResource TextPrimary}"
+                                        Text="View" />
+                                    <TextBlock
+                                        Margin="8,2,0,0"
+                                        VerticalAlignment="Center"
+                                        FontFamily="Segoe Fluent Icons"
+                                        FontSize="10"
+                                        Foreground="{StaticResource TextSecondary}"
+                                        Text="&#xE70D;" />
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Button.ContextMenu>
+                        <ContextMenu Style="{StaticResource DefaultContextMenuStyle}">
+                            <MenuItem
+                                Command="{Binding SetViewCommand}"
+                                CommandParameter="128"
+                                Header="Extra large icons" />
+                            <MenuItem
+                                Command="{Binding SetViewCommand}"
+                                CommandParameter="96"
+                                Header="Large icons" />
+                            <MenuItem
+                                Command="{Binding SetViewCommand}"
+                                CommandParameter="48"
+                                Header="Medium icons" />
+                            <MenuItem
+                                Command="{Binding SetViewCommand}"
+                                CommandParameter="16"
+                                Header="Small icons" />
+                            <MenuItem
+                                Command="{Binding SetViewCommand}"
+                                CommandParameter="16"
+                                Header="List" />
+                            <MenuItem
+                                Command="{Binding SetViewCommand}"
+                                CommandParameter="16"
+                                Header="Details" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+            </StackPanel>
+
+            <Button
+                Grid.Column="1"
+                Margin="0,0,10,0"
+                Command="{Binding DataContext.OpenOptionsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                Content="&#xE713;"
+                Style="{StaticResource NavButtonStyle}" />
+        </Grid>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border
+                Grid.Column="0"
+                Padding="0,10"
+                Background="{StaticResource AppBackground}"
+                MouseDown="Sidebar_MouseDown">
+                <ScrollViewer BorderThickness="0">
+                    <StackPanel>
+                        <TextBlock
+                            Margin="15,10,0,5"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Foreground="{StaticResource TextSecondary}"
+                            Text="Quick Access" />
+                        <TreeView
+                            AllowDrop="True"
+                            BorderThickness="0"
+                            DragOver="TreeView_DragOver"
+                            Drop="TreeView_Drop"
+                            ItemsSource="{Binding QuickAccess}"
+                            MouseMove="TreeView_MouseMove"
+                            PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
+                            SelectedItemChanged="TreeView_SelectedItemChanged">
+                            <TreeView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel
+                                        Margin="0,4"
+                                        Background="Transparent"
+                                        Orientation="Horizontal">
+                                        <StackPanel.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem
+                                                    Command="{Binding Data.DataContext.SelectedTab.NavigateCommand, Source={StaticResource WindowProxy}}"
+                                                    CommandParameter="{Binding FullPath}"
+                                                    Header="Open">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem
+                                                    Command="{Binding Data.DataContext.AddTabCommand, Source={StaticResource WindowProxy}}"
+                                                    CommandParameter="{Binding FullPath}"
+                                                    Header="Open in new tab">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator />
+                                                <MenuItem
+                                                    Command="{Binding Data.DataContext.MovePinUpCommand, Source={StaticResource WindowProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    Header="Move Up">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74A;" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem
+                                                    Command="{Binding Data.DataContext.MovePinDownCommand, Source={StaticResource WindowProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    Header="Move Down">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74B;" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator />
+                                                <MenuItem
+                                                    Command="{Binding Data.DataContext.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    Header="Unpin from Quick Access">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE77A;" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator />
+                                                <MenuItem
+                                                    Command="{Binding Data.DataContext.SelectedTab.PropertiesCommand, Source={StaticResource WindowProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    Header="Properties">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE946;" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </StackPanel.ContextMenu>
+                                        <Image
+                                            Width="16"
+                                            Height="16"
+                                            Margin="0,0,10,0"
+                                            Source="{Binding Icon}" />
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+
+                        <Separator Margin="10,10" Background="{StaticResource BorderBrush}" />
+
+                        <Button
+                            Margin="10,5,10,5"
+                            Padding="5,4"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding NavigateToThisPCCommand}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border
+                                        Padding="{TemplateBinding Padding}"
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="4">
+                                        <TextBlock
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{StaticResource TextSecondary}"
+                                            Text="This PC" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+                                            <Setter Property="Cursor" Value="Hand" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <TreeView
+                            BorderThickness="0"
+                            ItemsSource="{Binding Drives}"
+                            SelectedItemChanged="TreeView_SelectedItemChanged">
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding SubDirectories}">
+                                    <Grid Margin="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <Image
+                                            Grid.RowSpan="2"
+                                            Width="20"
+                                            Height="20"
+                                            Margin="0,0,10,0"
+                                            VerticalAlignment="Center"
+                                            Source="{Binding Icon}" />
+
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding Name}" />
+
+                                        <ProgressBar
+                                            Grid.Row="1"
+                                            Grid.Column="1"
+                                            Height="4"
+                                            Margin="0,4,10,0"
+                                            Background="#333"
+                                            BorderThickness="0"
+                                            Foreground="{Binding PercentUsed, Converter={StaticResource PercentToColorConverter}}"
+                                            Maximum="100"
+                                            Visibility="{Binding IsDrive, Converter={StaticResource BoolToVis}}"
+                                            Value="{Binding PercentUsed, Mode=OneWay}" />
+                                    </Grid>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <GridSplitter
+                Grid.Column="1"
+                Width="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Stretch"
+                Background="{StaticResource BorderBrush}" />
+
+            <Border
+                Grid.Column="2"
+                Margin="0,10,0,0"
+                Padding="10,0,0,0"
+                Background="{StaticResource PanelBackground}"
+                CornerRadius="8,0,0,0"
+                DataContext="{Binding SelectedTab}">
+                <Grid>
+                    <ListView
+                        x:Name="FileListView"
+                        BorderThickness="0"
+                        ItemsSource="{Binding Files}"
+                        MouseDoubleClick="ListView_MouseDoubleClick"
+                        MouseMove="ListView_MouseMove"
+                        MouseUp="ListView_MouseUp"
+                        PreviewMouseDown="ListView_MouseDown"
+                        SelectionChanged="ListView_SelectionChanged"
+                        SelectionMode="Extended">
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            Margin="0,10,0,5"
+                                            FontWeight="SemiBold"
+                                            Foreground="{StaticResource TextPrimary}"
+                                            Text="{Binding Name, Converter={StaticResource DateToGroupHeaderConverter}}" />
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
+                    </ListView>
+                    <Canvas
+                        x:Name="SelectionCanvas"
+                        IsHitTestVisible="False"
+                        Visibility="Collapsed">
+                        <Border
+                            x:Name="SelectionBox"
+                            Background="#333399FF"
+                            BorderBrush="#3399FF"
+                            BorderThickness="1" />
+                    </Canvas>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border
+            Grid.Row="4"
+            Padding="10,5"
+            Background="{StaticResource PanelBackground}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" DataContext="{Binding SelectedTab}">
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{StaticResource TextPrimary}"
+                        Text="{Binding ItemCount}" />
+                    <TextBlock
+                        Margin="0,0,15,0"
+                        FontSize="12"
+                        Foreground="{StaticResource TextPrimary}"
+                        Text=" items" />
+                    <TextBlock Foreground="{StaticResource TextSecondary}" Text=" | " />
+                    <TextBlock
+                        Margin="15,0,0,0"
+                        FontSize="12"
+                        Foreground="{StaticResource TextSecondary}"
+                        Text="{Binding StatusText}" />
+                </StackPanel>
+                <TextBlock
+                    Grid.Column="1"
+                    FontSize="12"
+                    Foreground="{StaticResource TextSecondary}"
+                    Text="{Binding SystemStatus}" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
