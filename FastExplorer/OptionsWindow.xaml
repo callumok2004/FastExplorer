@@ -282,7 +282,13 @@
                                         </RepeatButton>
                                     </Track.DecreaseRepeatButton>
                                     <Track.Thumb>
-                                        <Thumb x:Name="Thumb" Width="20" Height="20" VerticalAlignment="Center" Focusable="False" OverridesDefaultStyle="True">
+                                        <Thumb
+                                            x:Name="Thumb"
+                                            Width="20"
+                                            Height="20"
+                                            VerticalAlignment="Center"
+                                            Focusable="False"
+                                            OverridesDefaultStyle="True">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
                                                     <Grid>

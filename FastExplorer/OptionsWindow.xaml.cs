@@ -14,13 +14,13 @@ namespace FastExplorer {
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) {
             Close();
-        }
-    }
+		}
+	}
 
     public class SettingsViewModel : ViewModelBase {
         private SettingsPageViewModel? _selectedPage;
 
-        public ObservableCollection<SettingsPageViewModel> Pages { get; } = new();
+        public ObservableCollection<SettingsPageViewModel> Pages { get; } = [];
 
         public SettingsPageViewModel? SelectedPage {
             get => _selectedPage;
@@ -54,7 +54,7 @@ namespace FastExplorer {
         public override string Icon => "\uE713";
         public override string Description => "Search, navigation, and behavior";
 
-        public AppSettings Settings => AppSettings.Current;
+        public static AppSettings Settings => AppSettings.Current;
     }
 
     public class AppearancePageViewModel : SettingsPageViewModel {
@@ -62,6 +62,6 @@ namespace FastExplorer {
         public override string Icon => "\uE790";
         public override string Description => "Customization and accessibility";
 
-        public AppSettings Settings => AppSettings.Current;
+        public static AppSettings Settings => AppSettings.Current;
     }
 }

@@ -35,9 +35,7 @@ namespace FastExplorer.ViewModels {
 
 		public ObservableCollection<ShellContextMenu.ShellMenuItem> ShellMenuItems {
 			get {
-				if (_shellMenuItems == null) {
-					_shellMenuItems = [];
-				}
+				_shellMenuItems ??= [];
 				return _shellMenuItems;
 			}
 		}
@@ -146,8 +144,7 @@ namespace FastExplorer.ViewModels {
 			if (_shellMenuItems != null && _shellMenuItems.Count > 0) return;
 
 			try {
-				var scm = new ShellContextMenu();
-				var items = scm.GetContextMenuItems([new FileInfo(FullPath)]);
+				var items = ShellContextMenu.GetContextMenuItems([new FileInfo(FullPath)]);
 				foreach (var item in items) {
 					ShellMenuItems.Add(item);
 				}
@@ -179,14 +176,10 @@ namespace FastExplorer.ViewModels {
 		}
 	}
 
-	public class FolderItemViewModel : FileItemViewModel {
+	public class FolderItemViewModel(DirectoryInfo info) : FileItemViewModel(info.Name, info.FullName, info.LastWriteTime) {
 		public override bool IsFolder => true;
 		public override string Type => "File folder";
 		public override string DisplaySize => "";
-
-		public FolderItemViewModel(DirectoryInfo info)
-			: base(info.Name, info.FullName, info.LastWriteTime) {
-		}
 
 		protected override ImageSource? LoadIcon(int size) {
 			return IconHelper.GetFolderIcon(FullPath, false, size);

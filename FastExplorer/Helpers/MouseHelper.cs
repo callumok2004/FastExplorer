@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 namespace FastExplorer.Helpers {
 	public static class MouseHelper {
 		[DllImport("user32.dll")]
@@ -21,3 +22,4 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

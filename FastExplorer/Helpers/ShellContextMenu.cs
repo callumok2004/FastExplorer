@@ -6,12 +6,11 @@ using System.Windows.Media;
 using System.Windows.Interop;
 using System.Windows;
 
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+#pragma warning disable SYSLIB1096 // Convert to 'GeneratedComInterface'
 namespace FastExplorer.Helpers {
 	public class ShellContextMenu {
 		#region Interop
-
-		[DllImport("shell32.dll", CharSet = CharSet.Auto)]
-		private static extern bool SHGetPathFromIDList(IntPtr pidl, IntPtr pszPath);
 
 		[DllImport("shell32.dll", CharSet = CharSet.Auto)]
 		private static extern int SHGetDesktopFolder(out IShellFolder ppshf);
@@ -118,25 +117,20 @@ namespace FastExplorer.Helpers {
 			public bool IsSeparator { get; set; }
 			public ICommand? Command { get; set; }
 			public ImageSource? Icon { get; set; }
-			public List<ShellMenuItem> Children { get; set; } = new();
+			public List<ShellMenuItem> Children { get; set; } = [];
 		}
 
-		private class ShellCommand : ICommand {
-			private readonly IContextMenu _contextMenu;
-			private readonly int _id;
+		private class ShellCommand(IContextMenu contextMenu, int id) : ICommand {
+			private readonly IContextMenu _contextMenu = contextMenu;
+			private readonly int _id = id;
 
-			public ShellCommand(IContextMenu contextMenu, int id) {
-				_contextMenu = contextMenu;
-				_id = id;
-			}
-
-			public event EventHandler? CanExecuteChanged;
+			public event EventHandler? CanExecuteChanged { add { } remove { } }
 			public bool CanExecute(object? parameter) => true;
 
 			public void Execute(object? parameter) {
 				try {
 					var ici = new CMINVOKECOMMANDINFO {
-						cbSize = Marshal.SizeOf(typeof(CMINVOKECOMMANDINFO)),
+						cbSize = Marshal.SizeOf<CMINVOKECOMMANDINFO>(),
 						lpVerb = _id,
 						nShow = 1,
 					};
@@ -147,7 +141,7 @@ namespace FastExplorer.Helpers {
 			}
 		}
 
-		private List<ShellMenuItem> GetMenuItems(IntPtr hMenu, IContextMenu contextMenu, bool isRoot) {
+		private static List<ShellMenuItem> GetMenuItems(IntPtr hMenu, IContextMenu contextMenu, bool isRoot) {
 			var items = new List<ShellMenuItem>();
 			int count = GetMenuItemCount(hMenu);
 			for (uint i = 0; i < count; i++) {
@@ -158,7 +152,7 @@ namespace FastExplorer.Helpers {
 
 				if (GetMenuItemInfo(hMenu, i, true, ref mii)) {
 					if ((mii.fType & MFT_SEPARATOR) == MFT_SEPARATOR) {
-						if (items.Count > 0 && !items[items.Count - 1].IsSeparator) {
+						if (items.Count > 0 && !items[^1].IsSeparator) {
 							items.Add(new ShellMenuItem { IsSeparator = true });
 						}
 					}
@@ -205,14 +199,14 @@ namespace FastExplorer.Helpers {
 				}
 			}
 
-			if (items.Count > 0 && items[items.Count - 1].IsSeparator) {
+			if (items.Count > 0 && items[^1].IsSeparator) {
 				items.RemoveAt(items.Count - 1);
 			}
 
 			return items;
 		}
 
-		public List<ShellMenuItem> GetContextMenuItems(FileInfo[] files) {
+		public static List<ShellMenuItem> GetContextMenuItems(FileInfo[] files) {
 			var items = new List<ShellMenuItem>();
 			if (files == null || files.Length == 0) return items;
 
@@ -254,7 +248,7 @@ namespace FastExplorer.Helpers {
 			return items;
 		}
 
-		public void ShowContextMenu(FileInfo[] files, System.Windows.Point point) {
+		public static void ShowContextMenu(FileInfo[] files, Point point) {
 			if (files == null || files.Length == 0) return;
 
 			try {
@@ -306,3 +300,5 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
+#pragma warning restore SYSLIB1096 // Convert to 'GeneratedComInterface'
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

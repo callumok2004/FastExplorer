@@ -108,7 +108,7 @@ namespace FastExplorer.ViewModels {
 			}
 		}
 
-		public void ClearSelection(IEnumerable<DirectoryItemViewModel> items) {
+		public static void ClearSelection(IEnumerable<DirectoryItemViewModel> items) {
 			foreach (var item in items) {
 				if (item.IsSelected) item.IsSelected = false;
 				ClearSelection(item.SubDirectories);

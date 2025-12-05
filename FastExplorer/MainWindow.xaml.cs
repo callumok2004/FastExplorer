@@ -7,9 +7,11 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+
 using FastExplorer.ViewModels;
 using FastExplorer.Helpers;
 
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 namespace FastExplorer {
 	public partial class MainWindow : Window {
 		public ICommand ViewMoreCommand { get; }
@@ -93,10 +95,10 @@ namespace FastExplorer {
 
 				if (sender is TreeView tv) {
 					if (tv.ItemsSource == vm.QuickAccess) {
-						vm.ClearSelection(vm.Drives);
+						MainViewModel.ClearSelection(vm.Drives);
 					}
 					else if (tv.ItemsSource == vm.Drives) {
-						vm.ClearSelection(vm.QuickAccess);
+						MainViewModel.ClearSelection(vm.QuickAccess);
 					}
 				}
 			}
@@ -211,7 +213,7 @@ namespace FastExplorer {
 			}
 		}
 
-		private void UpdateSelection(ListView lv, Rect selectionRect) {
+		private static void UpdateSelection(ListView lv, Rect selectionRect) {
 			foreach (var item in lv.Items) {
 				if (lv.ItemContainerGenerator.ContainerFromItem(item) is not ListViewItem container) continue;
 
@@ -268,9 +270,9 @@ namespace FastExplorer {
 					}
 
 					if (_lastDropTarget != currentTarget) {
-						if (_lastDropTarget != null) _lastDropTarget.IsDropTarget = false;
+						_lastDropTarget?.IsDropTarget = false;
 						_lastDropTarget = currentTarget;
-						if (_lastDropTarget != null) _lastDropTarget.IsDropTarget = true;
+						_lastDropTarget?.IsDropTarget = true;
 					}
 				}
 			}
@@ -280,17 +282,13 @@ namespace FastExplorer {
 		}
 
 		private void FileListView_DragLeave(object sender, DragEventArgs e) {
-			if (_lastDropTarget != null) {
-				_lastDropTarget.IsDropTarget = false;
-				_lastDropTarget = null;
-			}
+			_lastDropTarget?.IsDropTarget = false;
+			_lastDropTarget = null;
 		}
 
 		private void FileListView_Drop(object sender, DragEventArgs e) {
-			if (_lastDropTarget != null) {
-				_lastDropTarget.IsDropTarget = false;
-				_lastDropTarget = null;
-			}
+			_lastDropTarget?.IsDropTarget = false;
+			_lastDropTarget = null;
 
 			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
 				var files = (string[])e.Data.GetData(DataFormats.FileDrop);
@@ -443,7 +441,7 @@ namespace FastExplorer {
 			}
 		}
 
-		private Control CreateMenuItem(ShellContextMenu.ShellMenuItem item) {
+		private static Control CreateMenuItem(ShellContextMenu.ShellMenuItem item) {
 			if (item.IsSeparator) {
 				var sep = new Separator { Tag = "ShellItem" };
 				if (Application.Current.MainWindow?.FindResource("ContextMenuSeparatorStyle") is Style style) {
@@ -471,11 +469,10 @@ namespace FastExplorer {
 			return menuItem;
 		}
 
-		private void ShowShellContextMenu(FileItemViewModel fileItem, Point point) {
-			var shellMenu = new ShellContextMenu();
+		private static void ShowShellContextMenu(FileItemViewModel fileItem, Point point) {
 			try {
 				var fileInfo = new FileInfo(fileItem.FullPath);
-				shellMenu.ShowContextMenu([fileInfo], point);
+				ShellContextMenu.ShowContextMenu([fileInfo], point);
 			}
 			catch { }
 		}
@@ -519,7 +516,7 @@ namespace FastExplorer {
 
 		private void ListView_SelectionChanged(object sender, SelectionChangedEventArgs e) {
 			if (DataContext is MainViewModel vm && vm.SelectedTab != null && sender is ListView lv) {
-				vm.SelectedTab.UpdateSelectionStatus(lv.SelectedItems.Cast<FileItemViewModel>().ToList());
+				vm.SelectedTab.UpdateSelectionStatus([.. lv.SelectedItems.Cast<FileItemViewModel>()]);
 			}
 		}
 
@@ -530,9 +527,10 @@ namespace FastExplorer {
 		private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
 			if (!e.Handled) {
 				e.Handled = true;
-				var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta);
-				eventArg.RoutedEvent = UIElement.MouseWheelEvent;
-				eventArg.Source = sender;
+				var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) {
+					RoutedEvent = MouseWheelEvent,
+					Source = sender
+				};
 				var parent = VisualTreeHelper.GetParent((DependencyObject)sender) as UIElement;
 				parent?.RaiseEvent(eventArg);
 			}
@@ -582,9 +580,9 @@ namespace FastExplorer {
 					}
 
 					if (_lastTreeDropTarget != currentTarget) {
-						if (_lastTreeDropTarget != null) _lastTreeDropTarget.IsDropTarget = false;
+						_lastTreeDropTarget?.IsDropTarget = false;
 						_lastTreeDropTarget = currentTarget;
-						if (_lastTreeDropTarget != null) _lastTreeDropTarget.IsDropTarget = true;
+						_lastTreeDropTarget?.IsDropTarget = true;
 					}
 				}
 			}
@@ -594,17 +592,13 @@ namespace FastExplorer {
 		}
 
 		private void TreeView_DragLeave(object sender, DragEventArgs e) {
-			if (_lastTreeDropTarget != null) {
-				_lastTreeDropTarget.IsDropTarget = false;
-				_lastTreeDropTarget = null;
-			}
+			_lastTreeDropTarget?.IsDropTarget = false;
+			_lastTreeDropTarget = null;
 		}
 
 		private void TreeView_Drop(object sender, DragEventArgs e) {
-			if (_lastTreeDropTarget != null) {
-				_lastTreeDropTarget.IsDropTarget = false;
-				_lastTreeDropTarget = null;
-			}
+			_lastTreeDropTarget?.IsDropTarget = false;
+			_lastTreeDropTarget = null;
 
 			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
 				var files = (string[])e.Data.GetData(DataFormats.FileDrop);
@@ -653,10 +647,9 @@ namespace FastExplorer {
 				}
 			}
 			else if (e.Data.GetDataPresent(typeof(DirectoryItemViewModel))) {
-				var source = e.Data.GetData(typeof(DirectoryItemViewModel)) as DirectoryItemViewModel;
 				var treeViewItem = FindAncestor<TreeViewItem>((DependencyObject)e.OriginalSource);
 
-				if (source != null && treeViewItem != null && treeViewItem.DataContext is DirectoryItemViewModel target) {
+				if (e.Data.GetData(typeof(DirectoryItemViewModel)) is DirectoryItemViewModel source && treeViewItem != null && treeViewItem.DataContext is DirectoryItemViewModel target) {
 					if (DataContext is MainViewModel vm) {
 						vm.ReorderQuickAccess(source, target);
 					}
@@ -675,9 +668,9 @@ namespace FastExplorer {
 
 				if (sender is FrameworkElement element && element.DataContext is PathSegmentViewModel segment) {
 					if (_lastPathDropTarget != segment) {
-						if (_lastPathDropTarget != null) _lastPathDropTarget.IsDropTarget = false;
+						_lastPathDropTarget?.IsDropTarget = false;
 						_lastPathDropTarget = segment;
-						if (_lastPathDropTarget != null) _lastPathDropTarget.IsDropTarget = true;
+						_lastPathDropTarget?.IsDropTarget = true;
 					}
 				}
 			}
@@ -688,18 +681,14 @@ namespace FastExplorer {
 		}
 
 		private void PathSegment_DragLeave(object sender, DragEventArgs e) {
-			if (_lastPathDropTarget != null) {
-				_lastPathDropTarget.IsDropTarget = false;
-				_lastPathDropTarget = null;
-			}
+			_lastPathDropTarget?.IsDropTarget = false;
+			_lastPathDropTarget = null;
 			e.Handled = true;
 		}
 
 		private void PathSegment_Drop(object sender, DragEventArgs e) {
-			if (_lastPathDropTarget != null) {
-				_lastPathDropTarget.IsDropTarget = false;
-				_lastPathDropTarget = null;
-			}
+			_lastPathDropTarget?.IsDropTarget = false;
+			_lastPathDropTarget = null;
 
 			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
 				var files = (string[])e.Data.GetData(DataFormats.FileDrop);
@@ -766,9 +755,7 @@ namespace FastExplorer {
 		private void MenuItemButton_Click(object sender, RoutedEventArgs e) {
 			if (sender is Button button) {
 				var contextMenu = FindAncestor<ContextMenu>(button);
-				if (contextMenu != null) {
-					contextMenu.IsOpen = false;
-				}
+				contextMenu?.IsOpen = false;
 			}
 		}
 
@@ -791,3 +778,4 @@ namespace FastExplorer {
 		}
 	}
 }
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

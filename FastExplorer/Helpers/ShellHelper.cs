@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
+
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+#pragma warning disable SYSLIB1096 // Convert to 'GeneratedComInterface'
 namespace FastExplorer.Helpers {
 	public static class ShellHelper {
 		public static List<(string Path, string Name)> GetQuickAccessFolders() {
@@ -191,3 +194,5 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
+#pragma warning restore SYSLIB1096 // Convert to 'GeneratedComInterface'
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

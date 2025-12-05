@@ -88,7 +88,7 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _isSelected, value);
 		}
 
-		private bool HasSubDirectories(string path) {
+		private static bool HasSubDirectories(string path) {
 			try {
 				return Directory.EnumerateDirectories(path).Any();
 			}

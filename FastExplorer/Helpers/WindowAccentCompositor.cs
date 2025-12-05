@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 namespace FastExplorer.Helpers {
 	public static class WindowAccentCompositor {
 		[DllImport("user32.dll")]
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 		internal static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 
 		[StructLayout(LayoutKind.Sequential)]
 		internal struct WindowCompositionAttributeData {
@@ -34,7 +36,7 @@ namespace FastExplorer.Helpers {
 			public int AnimationId;
 		}
 
-		public static void EnableBlur(IntPtr hwnd, int opacity = 64, uint color = 0x202020) {
+		public static void EnableBlur(IntPtr hwnd) {
 			var accent = new AccentPolicy {
 				AccentState = AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND,
 				GradientColor = unchecked(0x40202020)

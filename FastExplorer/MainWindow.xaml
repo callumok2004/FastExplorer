@@ -2,12 +2,12 @@
     x:Class="FastExplorer.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="clr-namespace:FastExplorer"
     xmlns:converters="clr-namespace:FastExplorer.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:helpers="clr-namespace:FastExplorer.Helpers"
-    xmlns:viewmodels="clr-namespace:FastExplorer.ViewModels"
+    xmlns:local="clr-namespace:FastExplorer"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="clr-namespace:FastExplorer.ViewModels"
     Title="FastExplorer"
     Width="1100"
     Height="700"
@@ -19,9 +19,18 @@
     mc:Ignorable="d">
 
     <Window.InputBindings>
-        <KeyBinding Key="C" Modifiers="Control" Command="{Binding SelectedTab.CopyCommand}" />
-        <KeyBinding Key="X" Modifiers="Control" Command="{Binding SelectedTab.CutCommand}" />
-        <KeyBinding Key="V" Modifiers="Control" Command="{Binding SelectedTab.PasteCommand}" />
+        <KeyBinding
+            Key="C"
+            Command="{Binding SelectedTab.CopyCommand}"
+            Modifiers="Control" />
+        <KeyBinding
+            Key="X"
+            Command="{Binding SelectedTab.CutCommand}"
+            Modifiers="Control" />
+        <KeyBinding
+            Key="V"
+            Command="{Binding SelectedTab.PasteCommand}"
+            Modifiers="Control" />
         <KeyBinding Key="Delete" Command="{Binding SelectedTab.DeleteCommand}" />
         <KeyBinding Key="F2" Command="{Binding SelectedTab.RenameCommand}" />
     </Window.InputBindings>
@@ -155,7 +164,10 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Source="{Binding Icon}" />
-                <Grid Grid.Row="1" Margin="0,4,0,0" HorizontalAlignment="Center">
+                <Grid
+                    Grid.Row="1"
+                    Margin="0,4,0,0"
+                    HorizontalAlignment="Center">
                     <TextBlock
                         HorizontalAlignment="Center"
                         Foreground="{StaticResource TextPrimary}"
@@ -167,9 +179,9 @@
                         MinWidth="60"
                         MaxWidth="180"
                         HorizontalContentAlignment="Center"
+                        LostFocus="RenameTextBox_LostFocus"
                         Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
-                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
-                        LostFocus="RenameTextBox_LostFocus">
+                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}">
                         <TextBox.InputBindings>
                             <KeyBinding
                                 Key="Enter"
@@ -658,40 +670,40 @@
                                 HorizontalAlignment="Left"
                                 Orientation="Horizontal">
                                 <Button
+                                    Click="MenuItemButton_Click"
                                     Command="{Binding PlacementTarget.Tag.CutCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                     CommandParameter="{Binding}"
                                     Content="&#xE8C6;"
                                     Style="{StaticResource MenuIconButtonStyle}"
-                                    ToolTip="Cut"
-                                    Click="MenuItemButton_Click" />
+                                    ToolTip="Cut" />
                                 <Button
+                                    Click="MenuItemButton_Click"
                                     Command="{Binding PlacementTarget.Tag.CopyCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                     CommandParameter="{Binding}"
                                     Content="&#xE8C8;"
                                     Style="{StaticResource MenuIconButtonStyle}"
-                                    ToolTip="Copy"
-                                    Click="MenuItemButton_Click" />
+                                    ToolTip="Copy" />
                                 <Button
+                                    Click="MenuItemButton_Click"
                                     Command="{Binding PlacementTarget.Tag.RenameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                     CommandParameter="{Binding}"
                                     Content="&#xE8AC;"
                                     Style="{StaticResource MenuIconButtonStyle}"
-                                    ToolTip="Rename"
-                                    Click="MenuItemButton_Click" />
+                                    ToolTip="Rename" />
                                 <Button
+                                    Click="MenuItemButton_Click"
                                     Command="{Binding PlacementTarget.Tag.ShareCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                     CommandParameter="{Binding}"
                                     Content="&#xE72D;"
                                     Style="{StaticResource MenuIconButtonStyle}"
-                                    ToolTip="Share"
-                                    Click="MenuItemButton_Click" />
+                                    ToolTip="Share" />
                                 <Button
+                                    Click="MenuItemButton_Click"
                                     Command="{Binding PlacementTarget.Tag.DeleteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                     CommandParameter="{Binding}"
                                     Content="&#xE74D;"
                                     Style="{StaticResource MenuIconButtonStyle}"
-                                    ToolTip="Delete"
-                                    Click="MenuItemButton_Click" />
+                                    ToolTip="Delete" />
                             </StackPanel>
                         </Border>
                     </ControlTemplate>
@@ -821,9 +833,9 @@
                                             <TextBox
                                                 MinWidth="150"
                                                 VerticalAlignment="Center"
+                                                LostFocus="RenameTextBox_LostFocus"
                                                 Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
-                                                Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
-                                                LostFocus="RenameTextBox_LostFocus">
+                                                Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}">
                                                 <TextBox.InputBindings>
                                                     <KeyBinding
                                                         Key="Enter"
@@ -1256,8 +1268,8 @@
                                                 Command="{Binding NavigateCommand}"
                                                 CommandParameter="{Binding Path}"
                                                 Content="{Binding Name}"
-                                                DragOver="PathSegment_DragOver"
                                                 DragLeave="PathSegment_DragLeave"
+                                                DragOver="PathSegment_DragOver"
                                                 Drop="PathSegment_Drop"
                                                 Foreground="{StaticResource TextPrimary}">
                                                 <Button.Template>
@@ -1627,8 +1639,8 @@
                         <TreeView
                             AllowDrop="True"
                             BorderThickness="0"
-                            DragOver="TreeView_DragOver"
                             DragLeave="TreeView_DragLeave"
+                            DragOver="TreeView_DragOver"
                             Drop="TreeView_Drop"
                             ItemsSource="{Binding QuickAccess}"
                             MouseMove="TreeView_MouseMove"
@@ -1741,8 +1753,8 @@
                         <TreeView
                             AllowDrop="True"
                             BorderThickness="0"
-                            DragOver="TreeView_DragOver"
                             DragLeave="TreeView_DragLeave"
+                            DragOver="TreeView_DragOver"
                             Drop="TreeView_Drop"
                             ItemsSource="{Binding Drives}"
                             PreviewMouseWheel="TreeView_PreviewMouseWheel"
@@ -1810,8 +1822,8 @@
                         x:Name="FileListView"
                         AllowDrop="True"
                         BorderThickness="0"
-                        DragOver="FileListView_DragOver"
                         DragLeave="FileListView_DragLeave"
+                        DragOver="FileListView_DragOver"
                         Drop="FileListView_Drop"
                         ItemsSource="{Binding Files}"
                         MouseDoubleClick="ListView_MouseDoubleClick"
@@ -1859,7 +1871,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal" DataContext="{Binding SelectedTab}">
+                <StackPanel DataContext="{Binding SelectedTab}" Orientation="Horizontal">
                     <TextBlock
                         FontSize="12"
                         Foreground="{StaticResource TextPrimary}"

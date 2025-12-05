@@ -9,6 +9,8 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
+#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+#pragma warning disable SYSLIB1096 // Convert to 'GeneratedComInterface'
 namespace FastExplorer.Helpers {
 	public static class IconHelper {
 		private static readonly Dictionary<string, ImageSource> _iconCache = [];
@@ -36,14 +38,14 @@ namespace FastExplorer.Helpers {
 			if (string.IsNullOrEmpty(ext)) ext = ".file";
 
 			if (ext == ".exe" || ext == ".lnk" || ext == ".ico") {
-				return GetIcon(path, false, false, false);
+				return GetIcon(path, false, false);
 			}
 
 			lock (_cacheLock) {
 				if (_iconCache.TryGetValue(ext, out var cachedIcon)) return cachedIcon;
 			}
 
-			var icon = GetIcon(ext, false, false, true);
+			var icon = GetIcon(ext, false, true);
 
 			if (icon != null) {
 				lock (_cacheLock) {
@@ -55,7 +57,7 @@ namespace FastExplorer.Helpers {
 
 		public static ImageSource? GetFolderIcon(string path, bool open) {
 			if (path.Length <= 3 || _specialPaths.Contains(path)) {
-				return GetIcon(path, true, open, false);
+				return GetIcon(path, true, false);
 			}
 
 			string key = open ? "folder_open" : "folder_closed";
@@ -64,7 +66,7 @@ namespace FastExplorer.Helpers {
 				if (_iconCache.TryGetValue(key, out var cachedIcon)) return cachedIcon;
 			}
 
-			var icon = GetIcon(path, true, open, true);
+			var icon = GetIcon(path, true, true);
 
 			if (icon != null) {
 				lock (_cacheLock) {
@@ -74,7 +76,7 @@ namespace FastExplorer.Helpers {
 			return icon;
 		}
 
-		private static BitmapSource? GetIcon(string path, bool isFolder, bool isOpen, bool useFileAttributes) {
+		private static BitmapSource? GetIcon(string path, bool isFolder,  bool useFileAttributes) {
 			var flags = SHGFI_ICON | SHGFI_SMALLICON;
 			if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
 
@@ -176,7 +178,7 @@ namespace FastExplorer.Helpers {
 			if (string.IsNullOrEmpty(ext)) ext = ".file";
 
 			if (ext == ".exe" || ext == ".lnk" || ext == ".ico") {
-				return GetIcon(path, false, false, false, size);
+				return GetIcon(path, false, false, size);
 			}
 
 			string cacheKey = $"{ext}_{size}";
@@ -184,7 +186,7 @@ namespace FastExplorer.Helpers {
 				if (_iconCache.TryGetValue(cacheKey, out var cachedIcon)) return cachedIcon;
 			}
 
-			var icon = GetIcon(ext, false, false, true, size);
+			var icon = GetIcon(ext, false, true, size);
 
 			if (icon != null) {
 				lock (_cacheLock) {
@@ -201,7 +203,7 @@ namespace FastExplorer.Helpers {
 				if (_iconCache.TryGetValue(key, out var cachedIcon)) return cachedIcon;
 			}
 
-			var icon = GetIcon(path, true, open, false, size);
+			var icon = GetIcon(path, true, false, size);
 
 			if (icon != null) {
 				lock (_cacheLock) {
@@ -211,7 +213,7 @@ namespace FastExplorer.Helpers {
 			return icon;
 		}
 
-		private static BitmapSource? GetIcon(string path, bool isFolder, bool isOpen, bool useFileAttributes, int size) {
+		private static BitmapSource? GetIcon(string path, bool isFolder, bool useFileAttributes, int size) {
 			if (size <= 16) {
 				var flags = SHGFI_ICON | SHGFI_SMALLICON;
 				if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
@@ -241,8 +243,7 @@ namespace FastExplorer.Helpers {
 			int hres = SHGetImageList(imageListType, ref iidImageList, out IImageList? iml);
 
 			if (hres == 0 && iml != null) {
-				IntPtr hIcon = IntPtr.Zero;
-				hres = iml.GetIcon(fileInfo.iIcon, ILD_TRANSPARENT, out hIcon);
+				hres = iml.GetIcon(fileInfo.iIcon, ILD_TRANSPARENT, out nint hIcon);
 				if (hres == 0 && hIcon != IntPtr.Zero) {
 					var icon = Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
 					_ = DestroyIcon(hIcon);
@@ -315,3 +316,5 @@ namespace FastExplorer.Helpers {
 		}
 	}
 }
+#pragma warning restore SYSLIB1096 // Convert to 'GeneratedComInterface'
+#pragma warning restore SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time

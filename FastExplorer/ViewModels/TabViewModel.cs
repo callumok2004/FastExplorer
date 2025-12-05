@@ -10,7 +10,7 @@ using FastExplorer.Helpers;
 
 namespace FastExplorer.ViewModels {
 	public class TabViewModel : ViewModelBase {
-		private MainViewModel _mainViewModel;
+		private readonly MainViewModel _mainViewModel;
 		private string _currentPath = string.Empty;
 		private string _tabName = "Home";
 		private ImageSource? _icon;
@@ -20,8 +20,8 @@ namespace FastExplorer.ViewModels {
 		private string _statusText = "Ready";
 		private int _itemCount;
 		private string _searchText = string.Empty;
-		private Stack<string> _backHistory = new();
-		private Stack<string> _forwardHistory = new();
+		private readonly Stack<string> _backHistory = new();
+		private readonly Stack<string> _forwardHistory = new();
 		private bool _isNavigating;
 		private CancellationTokenSource? _searchCts;
 		private string _sortProperty = AppSettings.Current.SortProperty;
@@ -99,7 +99,7 @@ namespace FastExplorer.ViewModels {
 				if (itemsToCut.Count > 0) {
 					try {
 						var list = new System.Collections.Specialized.StringCollection();
-						list.AddRange(itemsToCut.ToArray());
+						list.AddRange([.. itemsToCut]);
 						var data = new DataObject();
 						data.SetFileDropList(list);
 						data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(5)));
@@ -121,7 +121,7 @@ namespace FastExplorer.ViewModels {
 				if (itemsToCopy.Count > 0) {
 					try {
 						var list = new System.Collections.Specialized.StringCollection();
-						list.AddRange(itemsToCopy.ToArray());
+						list.AddRange([.. itemsToCopy]);
 						Clipboard.SetFileDropList(list);
 						
 						// Also set with DropEffect for "Copy" (2)
@@ -140,8 +140,7 @@ namespace FastExplorer.ViewModels {
 					try {
 						var data = Clipboard.GetDataObject();
 						if (data != null && data.GetDataPresent("Preferred DropEffect")) {
-							var stream = data.GetData("Preferred DropEffect") as MemoryStream;
-							if (stream != null) {
+							if (data.GetData("Preferred DropEffect") is MemoryStream stream) {
 								byte[] bytes = stream.ToArray();
 								if (bytes.Length > 0 && bytes[0] == 5) isMove = true;
 							}
@@ -289,6 +288,7 @@ namespace FastExplorer.ViewModels {
 					
 					_searchCts?.Cancel();
 					if (string.IsNullOrWhiteSpace(value)) {
+						IsSearching = false;
 						FilterFiles();
 					}
 					else {
@@ -401,7 +401,7 @@ namespace FastExplorer.ViewModels {
 				string dir;
 				string filter;
 
-				if (path.EndsWith("\\")) {
+				if (path.EndsWith('\\')) {
 					dir = path;
 					filter = "";
 				}
@@ -680,7 +680,7 @@ namespace FastExplorer.ViewModels {
 			}
 		}
 
-		private bool IsDownloadsFolder(string path) {
+		private static bool IsDownloadsFolder(string path) {
 			return path.Equals(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads", StringComparison.OrdinalIgnoreCase);
 		}
 
@@ -789,7 +789,7 @@ namespace FastExplorer.ViewModels {
 		}
 
 		public void UpdateSelectionStatus(IList<FileItemViewModel> selectedItems) {
-			_selectedItems = selectedItems.ToList();
+			_selectedItems = [.. selectedItems];
 			if (selectedItems.Count == 0) {
 				StatusText = $"{ItemCount} items";
 			}
