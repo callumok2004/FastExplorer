@@ -527,6 +527,17 @@ namespace FastExplorer {
 			_startPoint = e.GetPosition(null);
 		}
 
+		private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+			if (!e.Handled) {
+				e.Handled = true;
+				var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta);
+				eventArg.RoutedEvent = UIElement.MouseWheelEvent;
+				eventArg.Source = sender;
+				var parent = VisualTreeHelper.GetParent((DependencyObject)sender) as UIElement;
+				parent?.RaiseEvent(eventArg);
+			}
+		}
+
 		private void TreeView_MouseMove(object sender, MouseEventArgs e) {
 			if (e.LeftButton == MouseButtonState.Pressed) {
 				Point mousePos = e.GetPosition(null);

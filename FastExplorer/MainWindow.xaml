@@ -1633,6 +1633,7 @@
                             ItemsSource="{Binding QuickAccess}"
                             MouseMove="TreeView_MouseMove"
                             PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
+                            PreviewMouseWheel="TreeView_PreviewMouseWheel"
                             SelectedItemChanged="TreeView_SelectedItemChanged">
                             <TreeView.ItemTemplate>
                                 <DataTemplate>
@@ -1744,6 +1745,7 @@
                             DragLeave="TreeView_DragLeave"
                             Drop="TreeView_Drop"
                             ItemsSource="{Binding Drives}"
+                            PreviewMouseWheel="TreeView_PreviewMouseWheel"
                             SelectedItemChanged="TreeView_SelectedItemChanged">
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding SubDirectories}">
