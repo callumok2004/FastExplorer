@@ -78,6 +78,8 @@ namespace FastExplorer.ViewModels {
 				ClearSelection(QuickAccess);
 				ClearSelection(Drives);
 				RecycleBin?.IsSelected = false;
+				var thisPC = Drives.FirstOrDefault(d => d.FullPath == "This PC");
+				if (thisPC != null) thisPC.IsSelected = true;
 			});
 			NavigateToRecycleBinCommand = new RelayCommand(_ => {
 				SelectedTab?.NavigateTo(RecycleBin.FullPath);
@@ -263,6 +265,12 @@ namespace FastExplorer.ViewModels {
 				ClearSelection(Drives);
 				RecycleBin?.IsSelected = false;
 
+				if (path == "This PC") {
+					var thisPC = Drives.FirstOrDefault(d => d.FullPath == "This PC");
+					if (thisPC != null) thisPC.IsSelected = true;
+					return;
+				}
+
 				if (RecycleBin != null && (path == RecycleBin.FullPath || path.StartsWith("shell:RecycleBinFolder") || path.StartsWith("::{645FF040-5081-101B-9F08-00AA002F954E}"))) {
 					RecycleBin.IsSelected = true;
 					return;
@@ -275,10 +283,13 @@ namespace FastExplorer.ViewModels {
 					}
 				}
 
-				foreach (var drive in Drives) {
-					if (path.Equals(drive.FullPath, StringComparison.OrdinalIgnoreCase)) {
-						drive.IsSelected = true;
-						return;
+				var root = Drives.FirstOrDefault(d => d.FullPath == "This PC");
+				if (root != null) {
+					foreach (var drive in root.SubDirectories) {
+						if (path.Equals(drive.FullPath, StringComparison.OrdinalIgnoreCase)) {
+							drive.IsSelected = true;
+							return;
+						}
 					}
 				}
 			}
@@ -383,22 +394,42 @@ namespace FastExplorer.ViewModels {
 
 		private async Task LoadDrivesAsync() {
 			try {
-				var drives = await Task.Run(() => {
+				var drives = await Task.Run(async () => {
 					var list = new List<DirectoryItemViewModel>();
-					foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady)) {
-						list.Add(new DirectoryItemViewModel(drive.RootDirectory.FullName, drive.Name, drive.VolumeLabel, true));
+					
+					var driveTasks = DriveInfo.GetDrives().Select(d => Task.Run(() => {
+						try {
+							if (d.IsReady) {
+								return new DirectoryItemViewModel(d.RootDirectory.FullName, d.Name, d.VolumeLabel, true);
+							}
+						}
+						catch { }
+						return null;
+					}));
+
+					var driveResults = await Task.WhenAll(driveTasks);
+					foreach (var item in driveResults) {
+						if (item != null) list.Add(item);
 					}
+
 					foreach (var path in AppSettings.Current.NetworkShares) {
 						list.Add(new DirectoryItemViewModel(path, null, null, false, true));
+					}
+					foreach (var distro in WslHelper.GetDistributions()) {
+						list.Add(new DirectoryItemViewModel($@"\\wsl.localhost\{distro}", distro, null, true, false));
 					}
 					return list;
 				});
 
 				Application.Current.Dispatcher.Invoke(() => {
 					Drives.Clear();
+					var thisPC = new DirectoryItemViewModel("This PC");
 					foreach (var drive in drives) {
-						Drives.Add(drive);
+						thisPC.SubDirectories.Add(drive);
+						_ = drive.LoadDriveDetailsAsync();
 					}
+					thisPC.IsExpanded = true;
+					Drives.Add(thisPC);
 				});
 			}
 			catch { }

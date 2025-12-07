@@ -20,12 +20,12 @@ namespace FastExplorer.ViewModels {
 				};
 				int hr = ShellHelper.SHQueryRecycleBin(null, ref rbInfo);
 				if (hr == 0) {
-					SizeText = FileItemViewModel.FormatSize(rbInfo.i64Size);
+					SizeText = $"{FileItemViewModel.FormatSize(rbInfo.i64Size)} ({rbInfo.i64NumItems} items)";
 				}
 				else {
 					hr = ShellHelper.SHQueryRecycleBin(string.Empty, ref rbInfo);
 					if (hr == 0) {
-						SizeText = FileItemViewModel.FormatSize(rbInfo.i64Size);
+						SizeText = $"{FileItemViewModel.FormatSize(rbInfo.i64Size)} ({rbInfo.i64NumItems} items)";
 					}
 					else {
 						SizeText = "Unknown";

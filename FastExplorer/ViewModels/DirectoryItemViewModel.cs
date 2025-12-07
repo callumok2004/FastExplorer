@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using System.Windows.Media;
 using FastExplorer.Helpers;
 
@@ -16,7 +17,12 @@ namespace FastExplorer.ViewModels {
 		public ImageSource? Icon { get; }
 		public bool IsDrive { get; }
 		public bool IsNetworkShare { get; }
-		public double PercentUsed { get; }
+		public bool ShowCapacityBar => IsDrive || IsNetworkShare;
+		public double PercentUsed {
+			get => _percentUsed;
+			set => SetProperty(ref _percentUsed, value);
+		}
+		private double _percentUsed;
 
 		public bool IsDropTarget {
 			get => _isDropTarget;
@@ -41,31 +47,19 @@ namespace FastExplorer.ViewModels {
 			}
 
 			if (fullPath == "This PC") {
-				Icon = IconHelper.GetFolderIcon(Environment.GetFolderPath(Environment.SpecialFolder.MyComputer), false, 16);
+				Icon = IconHelper.GetFolderIcon("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}", false, 24);
 			}
 			else {
 				if (isNetworkShare) {
-					Icon = IconHelper.GetFolderIcon("::{208D2C60-3AEA-1069-A2D7-08002B30309D}", false, 16);
+					Icon = IconHelper.GetFolderIcon("::{208D2C60-3AEA-1069-A2D7-08002B30309D}", false, 24);
 				}
 				else {
-					Icon = IconHelper.GetFolderIcon(fullPath, false, 16);
+					Icon = IconHelper.GetFolderIcon(fullPath, false, 24);
 				}
 			}
 
 			IsDrive = isDrive;
 			IsNetworkShare = isNetworkShare;
-
-			if (IsDrive) {
-				try {
-					var di = new DriveInfo(fullPath);
-					if (di.IsReady) {
-						long total = di.TotalSize;
-						long free = di.TotalFreeSpace;
-						PercentUsed = (double)(total - free) / total * 100.0;
-					}
-				}
-				catch { }
-			}
 
 			_subDirectories = [];
 
@@ -78,6 +72,42 @@ namespace FastExplorer.ViewModels {
 					_subDirectories.Add(new DirectoryItemViewModel("dummy"));
 					_hasDummyChild = true;
 				}
+			}
+		}
+
+		public async Task LoadDriveDetailsAsync() {
+			if (IsDrive || IsNetworkShare) {
+				await Task.Run(() => {
+					try {
+						ulong total = 0;
+						ulong free = 0;
+						bool success = false;
+
+						if (IsNetworkShare) {
+							if (ShellHelper.GetDiskFreeSpaceEx(FullPath, out ulong freeBytes, out ulong totalBytes, out _)) {
+								total = totalBytes;
+								free = freeBytes;
+								success = true;
+							}
+						}
+						else {
+							var di = new DriveInfo(FullPath);
+							if (di.IsReady) {
+								total = (ulong)di.TotalSize;
+								free = (ulong)di.TotalFreeSpace;
+								success = true;
+							}
+						}
+
+						if (success && total > 0) {
+							var percent = (double)(total - free) / total * 100.0;
+							Application.Current.Dispatcher.Invoke(() => {
+								PercentUsed = percent;
+							});
+						}
+					}
+					catch { }
+				});
 			}
 		}
 

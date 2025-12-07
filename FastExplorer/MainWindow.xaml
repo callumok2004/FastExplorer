@@ -100,6 +100,14 @@
                 Header="Type" />
         </GridView>
 
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="#202020" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#353535" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="5" />
+        </Style>
+
         <Style x:Key="RoundedProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="10" />
             <Setter Property="BorderThickness" Value="0" />
@@ -481,11 +489,13 @@
                             FontFamily="Segoe Fluent Icons"
                             RenderTransformOrigin="0.5,0.5"
                             Text="{Binding}">
-                            <TextBlock.RenderTransform>
-                                <RotateTransform Angle="0" />
-                            </TextBlock.RenderTransform>
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
+                                    <Setter Property="RenderTransform">
+                                        <Setter.Value>
+                                            <RotateTransform Angle="0" />
+                                        </Setter.Value>
+                                    </Setter>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding DataContext.IsRefreshing, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
                                             <DataTrigger.EnterActions>
@@ -570,10 +580,6 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TreeViewItem">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition />
@@ -581,84 +587,100 @@
 
                             <Border
                                 x:Name="Bd"
-                                Grid.ColumnSpan="2"
-                                Margin="2,1"
+                                Grid.Row="0"
+                                Margin="2,2"
                                 Padding="{TemplateBinding Padding}"
-                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4" />
+                                CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=Background}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton
+                                        x:Name="Expander"
+                                        Width="20"
+                                        Height="20"
+                                        VerticalAlignment="Center"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        ClickMode="Press"
+                                        Content="&#xE76C;"
+                                        FontFamily="Segoe Fluent Icons"
+                                        Foreground="{StaticResource TextSecondary}"
+                                        IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <TextBlock
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    FontFamily="Segoe Fluent Icons"
+                                                    FontSize="10"
+                                                    Foreground="{TemplateBinding Foreground}"
+                                                    RenderTransformOrigin="0.5,0.5"
+                                                    Text="{TemplateBinding Content}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="0" />
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                    <DataTrigger.EnterActions>
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation
+                                                                                    Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
+                                                                                    To="90"
+                                                                                    Duration="0:0:0.1" />
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </DataTrigger.EnterActions>
+                                                                    <DataTrigger.ExitActions>
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation
+                                                                                    Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
+                                                                                    To="0"
+                                                                                    Duration="0:0:0.1" />
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </DataTrigger.ExitActions>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
 
-                            <ToggleButton
-                                x:Name="Expander"
-                                Width="20"
-                                Height="20"
-                                VerticalAlignment="Center"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                ClickMode="Press"
-                                Content="&#xE76C;"
-                                FontFamily="Segoe Fluent Icons"
-                                Foreground="{StaticResource TextSecondary}"
-                                IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <TextBlock
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            FontFamily="Segoe Fluent Icons"
-                                            FontSize="10"
-                                            Foreground="{TemplateBinding Foreground}"
-                                            RenderTransformOrigin="0.5,0.5"
-                                            Text="{TemplateBinding Content}">
-                                            <TextBlock.RenderTransform>
-                                                <RotateTransform Angle="0" />
-                                            </TextBlock.RenderTransform>
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                            <DataTrigger.EnterActions>
-                                                                <BeginStoryboard>
-                                                                    <Storyboard>
-                                                                        <DoubleAnimation
-                                                                            Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
-                                                                            To="90"
-                                                                            Duration="0:0:0.1" />
-                                                                    </Storyboard>
-                                                                </BeginStoryboard>
-                                                            </DataTrigger.EnterActions>
-                                                            <DataTrigger.ExitActions>
-                                                                <BeginStoryboard>
-                                                                    <Storyboard>
-                                                                        <DoubleAnimation
-                                                                            Storyboard.TargetProperty="(TextBlock.RenderTransform).(RotateTransform.Angle)"
-                                                                            To="0"
-                                                                            Duration="0:0:0.1" />
-                                                                    </Storyboard>
-                                                                </BeginStoryboard>
-                                                            </DataTrigger.ExitActions>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-
-                            <ContentPresenter
-                                x:Name="PART_Header"
-                                Grid.Column="1"
-                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                ContentSource="Header" />
+                                    <ContentPresenter
+                                        x:Name="PART_Header"
+                                        Grid.Column="1"
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                        ContentSource="Header" />
+                                </Grid>
+                            </Border>
 
                             <ItemsPresenter
                                 x:Name="ItemsHost"
                                 Grid.Row="1"
-                                Grid.Column="1"
-                                Grid.ColumnSpan="2" />
+                                Margin="20,0,0,0" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="false">
@@ -669,9 +691,6 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="true">
                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
                             </Trigger>
                             <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="#333399FF" />
@@ -907,13 +926,13 @@
                             DisplayMemberBinding="{Binding DateModifiedString}"
                             Header="Date modified" />
                         <GridViewColumn
-                            Width="120"
-                            DisplayMemberBinding="{Binding Type}"
-                            Header="Type" />
-                        <GridViewColumn
                             Width="100"
                             DisplayMemberBinding="{Binding DisplaySize}"
                             Header="Size" />
+                        <GridViewColumn
+                            Width="250"
+                            DisplayMemberBinding="{Binding Type}"
+                            Header="Type" />
                     </GridView>
                 </Setter.Value>
             </Setter>
@@ -1067,7 +1086,8 @@
                         <Border
                             x:Name="HeaderBorder"
                             Padding="{TemplateBinding Padding}"
-                            Background="{TemplateBinding Background}">
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4">
                             <TextBlock FontWeight="SemiBold" Text="{TemplateBinding Content}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -1693,7 +1713,7 @@
                 Padding="0,10"
                 Background="{StaticResource AppBackground}"
                 MouseDown="Sidebar_MouseDown">
-                <ScrollViewer BorderThickness="0">
+                <ScrollViewer BorderThickness="0" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
                         <TextBlock
                             Margin="15,10,0,5"
@@ -1704,6 +1724,7 @@
                         <TreeView
                             AllowDrop="True"
                             BorderThickness="0"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             DragLeave="TreeView_DragLeave"
                             DragOver="TreeView_DragOver"
                             Drop="TreeView_Drop"
@@ -1715,11 +1736,14 @@
                             SelectedItemChanged="TreeView_SelectedItemChanged">
                             <TreeView.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel
+                                    <Grid
                                         Margin="0,4"
-                                        Background="Transparent"
-                                        Orientation="Horizontal">
-                                        <StackPanel.ContextMenu>
+                                        Background="Transparent">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.ContextMenu>
                                             <ContextMenu
                                                 Opened="ContextMenu_Opened"
                                                 Style="{StaticResource DefaultContextMenuStyle}">
@@ -1775,52 +1799,24 @@
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                             </ContextMenu>
-                                        </StackPanel.ContextMenu>
+                                        </Grid.ContextMenu>
                                         <Image
                                             Width="16"
                                             Height="16"
                                             Margin="0,0,10,0"
                                             Source="{Binding Icon}" />
-                                        <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
-                                    </StackPanel>
+                                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
                                 </DataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
 
                         <Separator Margin="10,10" Background="{StaticResource BorderBrush}" />
 
-                        <Button
-                            Margin="10,5,10,5"
-                            Padding="5,4"
-                            HorizontalContentAlignment="Left"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Command="{Binding NavigateToThisPCCommand}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border
-                                        Padding="{TemplateBinding Padding}"
-                                        Background="{TemplateBinding Background}"
-                                        CornerRadius="4">
-                                        <TextBlock
-                                            FontSize="12"
-                                            FontWeight="SemiBold"
-                                            Foreground="{StaticResource TextSecondary}"
-                                            Text="This PC" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource HoverBrush}" />
-                                            <Setter Property="Cursor" Value="Hand" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-
                         <TreeView
                             AllowDrop="True"
                             BorderThickness="0"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             DragLeave="TreeView_DragLeave"
                             DragOver="TreeView_DragOver"
                             Drop="TreeView_Drop"
@@ -1851,7 +1847,8 @@
                                         <TextBlock
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
-                                            Text="{Binding Name}" />
+                                            Text="{Binding Name}"
+                                            TextTrimming="CharacterEllipsis" />
 
                                         <ProgressBar
                                             Grid.Row="1"
@@ -1862,7 +1859,7 @@
                                             BorderThickness="0"
                                             Foreground="{Binding PercentUsed, Converter={StaticResource PercentToColorConverter}}"
                                             Maximum="100"
-                                            Visibility="{Binding IsDrive, Converter={StaticResource BoolToVis}}"
+                                            Visibility="{Binding ShowCapacityBar, Converter={StaticResource BoolToVis}}"
                                             Value="{Binding PercentUsed, Mode=OneWay}" />
                                     </Grid>
                                 </HierarchicalDataTemplate>
@@ -1979,6 +1976,39 @@
                             BorderBrush="#3399FF"
                             BorderThickness="1" />
                     </Canvas>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="16"
+                        Foreground="{StaticResource TextSecondary}"
+                        IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Files.Count}" Value="0" />
+                                            <Condition Binding="{Binding IsSearchActive}" Value="False" />
+                                            <Condition Binding="{Binding IsLoading}" Value="False" />
+                                            <Condition Binding="{Binding IsThisPC}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Text" Value="This folder is empty" />
+                                    </MultiDataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Files.Count}" Value="0" />
+                                            <Condition Binding="{Binding IsSearchActive}" Value="True" />
+                                            <Condition Binding="{Binding IsSearching}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Text" Value="No search results found" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
             </Border>
         </Grid>

@@ -151,10 +151,15 @@ namespace FastExplorer.ViewModels {
 		}
 
 		public FileItemViewModel(FileInfo info, bool poolName = true) {
+			string name = info.Name;
+			if (name.EndsWith(".url", StringComparison.OrdinalIgnoreCase)) {
+				name = Path.GetFileNameWithoutExtension(name);
+			}
+
 			if (poolName)
-				_fileName = StringPool.Shared.GetOrAdd(info.Name);
+				_fileName = StringPool.Shared.GetOrAdd(name);
 			else
-				_fileName = info.Name;
+				_fileName = name;
 
 			var dirSpan = Path.GetDirectoryName(info.FullName.AsSpan());
 			_directory = StringPool.Shared.GetOrAdd(dirSpan);
@@ -276,7 +281,7 @@ namespace FastExplorer.ViewModels {
 		public override string DisplaySize => (_isFolder && Size == 0) ? "" : base.DisplaySize;
 		public override string OriginalLocation => _originalLocation;
 
-		public ShellFileItemViewModel(string name, string fullPath, bool isFolder, long size, DateTime dateModified, string type = "", string originalLocation = "") 
+		public ShellFileItemViewModel(string name, string fullPath, bool isFolder, long size, DateTime dateModified, string type = "", string originalLocation = "")
 			: base(name, fullPath, dateModified) {
 			_isFolder = isFolder;
 			Size = size;
@@ -307,6 +312,36 @@ namespace FastExplorer.ViewModels {
 			FreeSpaceText = "";
 			try {
 				if (ShellHelper.GetDiskFreeSpaceEx(path, out ulong freeBytesAvailable, out ulong totalNumberOfBytes, out _)) {
+					Size = (long)totalNumberOfBytes;
+					long free = (long)freeBytesAvailable;
+					double used = Size - free;
+					if (Size > 0) {
+						PercentUsed = used / Size * 100.0;
+						FreeSpaceText = $"{FormatSize(free)} free of {FormatSize(Size)}";
+					}
+				}
+			}
+			catch { }
+		}
+
+		protected override ImageSource? LoadIcon(int size) {
+			return IconHelper.GetFolderIcon(FullPath, false, size);
+		}
+	}
+
+	public class WslDistroItemViewModel : FolderItemViewModel {
+		public override string Type => "Linux Distribution";
+		public override string Category => "Linux";
+		public override bool IsDrive => true;
+
+		public override double PercentUsed { get; }
+		public override string FreeSpaceText { get; }
+
+		public WslDistroItemViewModel(string name)
+			: base(new DirectoryInfo($@"\\wsl.localhost\{name}"), false) {
+			FreeSpaceText = "";
+			try {
+				if (ShellHelper.GetDiskFreeSpaceEx(FullPath, out ulong freeBytesAvailable, out ulong totalNumberOfBytes, out _)) {
 					Size = (long)totalNumberOfBytes;
 					long free = (long)freeBytesAvailable;
 					double used = Size - free;

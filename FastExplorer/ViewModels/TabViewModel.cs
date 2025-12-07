@@ -65,6 +65,14 @@ namespace FastExplorer.ViewModels {
 			set => SetProperty(ref _isRefreshing, value);
 		}
 
+		private bool _isLoading;
+		public bool IsLoading {
+			get => _isLoading;
+			set => SetProperty(ref _isLoading, value);
+		}
+
+		public bool IsThisPC => CurrentPath == "This PC";
+
 		public TabViewModel(MainViewModel mainViewModel) {
 			_mainViewModel = mainViewModel;
 			_files = [];
@@ -280,6 +288,7 @@ namespace FastExplorer.ViewModels {
 						NavigateTo(value);
 					}
 					OnPropertyChanged(nameof(CanSortOrView));
+					OnPropertyChanged(nameof(IsThisPC));
 				}
 			}
 		}
@@ -376,6 +385,9 @@ namespace FastExplorer.ViewModels {
 				if (SetProperty(ref _isPathEditing, value)) {
 					if (value) {
 						AddressBarText = CurrentPath;
+					}
+					else {
+						Suggestions.Clear();
 					}
 				}
 			}
@@ -528,6 +540,9 @@ namespace FastExplorer.ViewModels {
 			CurrentPath = path;
 			AddressBarText = path;
 
+			Files.Clear();
+			_allFiles.Clear();
+
 			_mainViewModel.OnTabNavigated(this);
 
 			if (AppSettings.Current.FolderViewStates.TryGetValue(path, out var state)) {
@@ -542,7 +557,7 @@ namespace FastExplorer.ViewModels {
 
 			if (isThisPC) {
 				TabName = "This PC";
-				Icon = IconHelper.GetFolderIcon(Environment.GetFolderPath(Environment.SpecialFolder.MyComputer), false, 16);
+				Icon = IconHelper.GetFolderIcon("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}", false, 16);
 			}
 			else if (isRecycleBin) {
 				TabName = "Recycle Bin";
@@ -597,7 +612,7 @@ namespace FastExplorer.ViewModels {
 				CurrentPath = path;
 				string name = path == "This PC" ? "This PC" : new DirectoryInfo(path).Name;
 				TabName = StringPool.Shared.GetOrAdd(string.IsNullOrEmpty(name) ? path : name);
-				Icon = IconHelper.GetFolderIcon(path == "This PC" ? Environment.GetFolderPath(Environment.SpecialFolder.MyComputer) : path, false, 16);
+				Icon = IconHelper.GetFolderIcon(path == "This PC" ? "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}" : path, false, 16);
 				_isNavigating = false;
 				_ = LoadFilesAsync(path);
 			}
@@ -611,7 +626,7 @@ namespace FastExplorer.ViewModels {
 				CurrentPath = path;
 				string name = path == "This PC" ? "This PC" : new DirectoryInfo(path).Name;
 				TabName = StringPool.Shared.GetOrAdd(string.IsNullOrEmpty(name) ? path : name);
-				Icon = IconHelper.GetFolderIcon(path == "This PC" ? Environment.GetFolderPath(Environment.SpecialFolder.MyComputer) : path, false, 16);
+				Icon = IconHelper.GetFolderIcon(path == "This PC" ? "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}" : path, false, 16);
 				_isNavigating = false;
 				_ = LoadFilesAsync(path);
 			}
@@ -643,7 +658,9 @@ namespace FastExplorer.ViewModels {
 		}
 
 		private async Task LoadFilesAsync(string path) {
-			if (path != CurrentPath) {
+			IsLoading = true;
+			try {
+				if (path != CurrentPath) {
 				Files.Clear();
 				_allFiles.Clear();
 			}
@@ -660,6 +677,10 @@ namespace FastExplorer.ViewModels {
 
 					foreach (var share in AppSettings.Current.NetworkShares) {
 						list.Add(new NetworkShareItemViewModel(share));
+					}
+
+					foreach (var distro in WslHelper.GetDistributions()) {
+						list.Add(new WslDistroItemViewModel(distro));
 					}
 
 					Application.Current.Dispatcher.Invoke(() => {
@@ -708,7 +729,9 @@ namespace FastExplorer.ViewModels {
 							list.Add(new FolderItemViewModel(dir));
 						}
 						foreach (var file in directoryInfo.GetFiles()) {
-							list.Add(new FileItemViewModel(file));
+							if (!file.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) {
+								list.Add(new FileItemViewModel(file));
+							}
 						}
 					}
 					catch { }
@@ -751,6 +774,10 @@ namespace FastExplorer.ViewModels {
 			}
 			catch (Exception ex) {
 				StatusText = $"Error: {ex.Message}";
+			}
+			}
+			finally {
+				IsLoading = false;
 			}
 		}
 
@@ -892,6 +919,8 @@ namespace FastExplorer.ViewModels {
 									if (isDir) {
 										folders.Enqueue(entry.FullName);
 									}
+
+									if (entry.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
 
 									var nameSpan = entry.Name.AsSpan();
 									if (nameSpan.Contains(query.AsSpan(), StringComparison.OrdinalIgnoreCase)) {

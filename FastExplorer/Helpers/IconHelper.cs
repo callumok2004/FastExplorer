@@ -177,20 +177,21 @@ namespace FastExplorer.Helpers {
 		private const int ILD_TRANSPARENT = 0x1;
 
 		private const uint SHGFI_OPENICON = 0x2;
+		private const uint SHGFI_LINKOVERLAY = 0x08000;
 
 		public static ImageSource? GetFileIcon(string path, int size) {
 			string ext = Path.GetExtension(path).ToLower();
 			if (string.IsNullOrEmpty(ext)) ext = ".file";
 
-			if (ext == ".exe" || ext == ".lnk" || ext == ".ico") {
-				return GetIcon(path, false, false, false, size);
+			if (ext == ".exe" || ext == ".lnk" || ext == ".ico" || ext == ".url") {
+				return GetIcon(path, false, false, false, size, ext == ".lnk" || ext == ".url");
 			}
 
-			return GetIcon(ext, false, false, true, size);
+			return GetIcon(ext, false, false, true, size, false);
 		}
 
 		public static ImageSource? GetFolderIcon(string path, bool open, int size) {
-			return GetIcon(path, true, open, false, size);
+			return GetIcon(path, true, open, false, size, false);
 		}
 
 		[LibraryImport("shell32.dll", StringMarshalling = StringMarshalling.Utf16)]
@@ -206,7 +207,7 @@ namespace FastExplorer.Helpers {
 
 		private const uint SHGFI_PIDL = 0x8;
 
-		private static ImageSource? GetIcon(string path, bool isFolder, bool isOpen, bool useFileAttributes, int size) {
+		private static ImageSource? GetIcon(string path, bool isFolder, bool isOpen, bool useFileAttributes, int size, bool isShortcut) {
 			IntPtr pidl = IntPtr.Zero;
 			bool pidlCreated = false;
 
@@ -224,6 +225,7 @@ namespace FastExplorer.Helpers {
 			if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
 			if (isOpen) flags |= SHGFI_OPENICON;
 			if (pidlCreated) flags |= SHGFI_PIDL;
+			if (isShortcut) flags |= SHGFI_LINKOVERLAY;
 
 			var attributes = isFolder ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
 
