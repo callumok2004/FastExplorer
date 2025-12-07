@@ -9,6 +9,7 @@ namespace FastExplorer.ViewModels {
 	public class FileItemViewModel : ViewModelBase {
 		private static readonly Dictionary<string, string> _typeCache = new(StringComparer.OrdinalIgnoreCase);
 		private static readonly string[] _sizeSuffixes = ["B", "KB", "MB", "GB", "TB"];
+		private static readonly string[] _mediaExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webp"];
 
 		private readonly string _directory;
 		private readonly string _fileName;
@@ -106,24 +107,25 @@ namespace FastExplorer.ViewModels {
 		public virtual string Type {
 			get {
 				try {
-					string ext = _fullPathOverride != null ? Path.GetExtension(_fullPathOverride) : Path.GetExtension(_fileName);
-					if (string.IsNullOrEmpty(ext)) return "File";
+					ReadOnlySpan<char> pathSpan = _fullPathOverride != null ? _fullPathOverride.AsSpan() : _fileName.AsSpan();
+					var ext = Path.GetExtension(pathSpan);
+					if (ext.IsEmpty) return "File";
 
 					string key;
 					if (ext.Length <= 64) {
 						Span<char> buffer = stackalloc char[ext.Length];
-						ext.AsSpan().ToLower(buffer, System.Globalization.CultureInfo.CurrentCulture);
+						ext.ToLower(buffer, System.Globalization.CultureInfo.CurrentCulture);
 						key = StringPool.Shared.GetOrAdd(buffer);
 					}
 					else {
-						key = StringPool.Shared.GetOrAdd(ext.ToLower());
+						key = StringPool.Shared.GetOrAdd(ext.ToString().ToLower());
 					}
 
 					lock (_typeCache) {
 						if (!_typeCache.TryGetValue(key, out var typeStr)) {
-							typeStr = IconHelper.GetFileType(ext);
+							typeStr = IconHelper.GetFileType(key);
 							if (string.IsNullOrEmpty(typeStr)) {
-								typeStr = ext.TrimStart('.').ToUpper() + " File";
+								typeStr = key.TrimStart('.').ToUpper() + " File";
 							}
 							_typeCache[key] = typeStr;
 						}
@@ -197,9 +199,16 @@ namespace FastExplorer.ViewModels {
 
 		protected virtual ImageSource? LoadIcon(int size) {
 			if (size > 20) {
-				string ext = Path.GetExtension(FullPath).ToLower();
-				string[] mediaExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webp"];
-				if (mediaExtensions.Contains(ext)) {
+				var ext = Path.GetExtension(FullPath.AsSpan());
+				bool isMedia = false;
+				foreach (var mediaExt in _mediaExtensions) {
+					if (ext.Equals(mediaExt.AsSpan(), StringComparison.OrdinalIgnoreCase)) {
+						isMedia = true;
+						break;
+					}
+				}
+
+				if (isMedia) {
 					var thumb = IconHelper.GetThumbnail(FullPath, size);
 					if (thumb != null) return thumb;
 				}

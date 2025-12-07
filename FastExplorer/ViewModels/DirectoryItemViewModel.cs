@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using CommunityToolkit.HighPerformance.Buffers;
 using FastExplorer.Helpers;
 
 namespace FastExplorer.ViewModels {
@@ -30,18 +31,28 @@ namespace FastExplorer.ViewModels {
 		}
 
 		public DirectoryItemViewModel(string fullPath, string? name = null, string? label = null, bool isDrive = false, bool isNetworkShare = false) {
-			FullPath = fullPath;
+			FullPath = StringPool.Shared.GetOrAdd(fullPath);
 			if (!string.IsNullOrEmpty(label)) {
-				Name = !string.IsNullOrEmpty(name) ? $"{label} ({name})" : label;
+				Name = StringPool.Shared.GetOrAdd(!string.IsNullOrEmpty(name) ? $"{label} ({name})" : label);
 			}
 			else {
 				if (fullPath == "This PC") Name = "This PC";
 				else {
 					if (isNetworkShare) {
-						Name = fullPath.TrimEnd('\\').Split('\\').LastOrDefault() ?? fullPath;
+						var span = fullPath.AsSpan().TrimEnd('\\');
+						var lastIndex = span.LastIndexOf('\\');
+						var shareName = lastIndex >= 0 ? span.Slice(lastIndex + 1) : span;
+						Name = StringPool.Shared.GetOrAdd(shareName);
 					}
 					else {
-						Name = name ?? new DirectoryInfo(fullPath).Name;
+						if (name != null) {
+							Name = StringPool.Shared.GetOrAdd(name);
+						} else {
+							var span = fullPath.AsSpan().TrimEnd(Path.DirectorySeparatorChar);
+							var lastIndex = span.LastIndexOf(Path.DirectorySeparatorChar);
+							var dirName = lastIndex >= 0 ? span.Slice(lastIndex + 1) : span;
+							Name = StringPool.Shared.GetOrAdd(dirName);
+						}
 					}
 				}
 			}
@@ -149,7 +160,7 @@ namespace FastExplorer.ViewModels {
 					var list = new List<DirectoryItemViewModel>();
 					try {
 						var info = new DirectoryInfo(FullPath);
-						foreach (var dir in info.GetDirectories()) {
+						foreach (var dir in info.EnumerateDirectories()) {
 							if ((dir.Attributes & FileAttributes.Hidden) != FileAttributes.Hidden) {
 								list.Add(new DirectoryItemViewModel(dir.FullName));
 							}

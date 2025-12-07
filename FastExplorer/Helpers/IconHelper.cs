@@ -6,9 +6,12 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Runtime.InteropServices.Marshalling;
 
+using CommunityToolkit.HighPerformance.Buffers;
+
 namespace FastExplorer.Helpers {
 	public static partial class IconHelper {
-		private static readonly Dictionary<string, ImageSource> _iconCache = [];
+		private static readonly Dictionary<string, ImageSource> _stringCache = [];
+		private static readonly Dictionary<long, ImageSource> _indexCache = [];
 		private static readonly Lock _cacheLock = new();
 		private const int MaxCacheSize = 500;
 
@@ -32,71 +35,45 @@ namespace FastExplorer.Helpers {
 			return string.Empty;
 		}
 
-		public static ImageSource? GetFileIcon(string path) {
-			string ext = Path.GetExtension(path).ToLower();
+		public static ImageSource? GetFileIcon(string path, int size) {
+			var extSpan = Path.GetExtension(path.AsSpan());
+			string ext;
+
+			if (extSpan.Length <= 64) {
+				Span<char> buffer = stackalloc char[extSpan.Length];
+				extSpan.ToLower(buffer, System.Globalization.CultureInfo.CurrentCulture);
+				ext = StringPool.Shared.GetOrAdd(buffer);
+			}
+			else {
+				ext = StringPool.Shared.GetOrAdd(extSpan.ToString().ToLower());
+			}
+
 			if (string.IsNullOrEmpty(ext)) ext = ".file";
 
-			if (ext == ".exe" || ext == ".lnk" || ext == ".ico") {
-				return GetIcon(path, false, false);
+			if (ext == ".exe" || ext == ".lnk" || ext == ".ico" || ext == ".url") {
+				return GetIcon(path, false, false, false, size, ext == ".lnk" || ext == ".url");
 			}
 
 			lock (_cacheLock) {
-				if (_iconCache.TryGetValue(ext, out var cachedIcon)) return cachedIcon;
+				if (_stringCache.TryGetValue(ext, out var cachedIcon)) return cachedIcon;
 			}
 
-			var icon = GetIcon(ext, false, true);
+			var icon = GetIcon(ext, false, false, true, size, false);
 
 			if (icon != null) {
 				lock (_cacheLock) {
-					if (_iconCache.Count >= MaxCacheSize) _iconCache.Clear();
-					if (!_iconCache.ContainsKey(ext)) _iconCache[ext] = icon;
+					if (_stringCache.Count >= MaxCacheSize) _stringCache.Clear();
+					if (!_stringCache.ContainsKey(ext)) _stringCache[ext] = icon;
 				}
 			}
 			return icon;
 		}
 
-		public static ImageSource? GetFolderIcon(string path, bool open) {
-			if (path.Length <= 3 || _specialPaths.Contains(path)) {
-				return GetIcon(path, true, false);
-			}
-
-			string key = open ? "folder_open" : "folder_closed";
-
-			lock (_cacheLock) {
-				if (_iconCache.TryGetValue(key, out var cachedIcon)) return cachedIcon;
-			}
-
-			var icon = GetIcon(path, true, true);
-
-			if (icon != null) {
-				lock (_cacheLock) {
-					if (_iconCache.Count >= MaxCacheSize) _iconCache.Clear();
-					if (!_iconCache.ContainsKey(key)) _iconCache[key] = icon;
-				}
-			}
-			return icon;
+		public static ImageSource? GetFolderIcon(string path, bool open, int size) {
+			return GetIcon(path, true, open, false, size, false);
 		}
 
-		private static BitmapSource? GetIcon(string path, bool isFolder,  bool useFileAttributes) {
-			var flags = SHGFI_ICON | SHGFI_SMALLICON;
-			if (useFileAttributes) flags |= SHGFI_USEFILEATTRIBUTES;
 
-			var attributes = isFolder ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
-
-			SHFILEINFO shinfo = new();
-			IntPtr hImg = SHGetFileInfo(path, attributes, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
-
-			if (hImg == IntPtr.Zero) return null;
-
-			var icon = Imaging.CreateBitmapSourceFromHIcon(
-				shinfo.hIcon,
-				Int32Rect.Empty,
-				BitmapSizeOptions.FromEmptyOptions());
-
-			_ = DestroyIcon(shinfo.hIcon);
-			icon.Freeze();
-			return icon;
-		}
 
 		[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
 		private unsafe struct SHFILEINFO {
@@ -179,21 +156,6 @@ namespace FastExplorer.Helpers {
 		private const uint SHGFI_OPENICON = 0x2;
 		private const uint SHGFI_LINKOVERLAY = 0x08000;
 
-		public static ImageSource? GetFileIcon(string path, int size) {
-			string ext = Path.GetExtension(path).ToLower();
-			if (string.IsNullOrEmpty(ext)) ext = ".file";
-
-			if (ext == ".exe" || ext == ".lnk" || ext == ".ico" || ext == ".url") {
-				return GetIcon(path, false, false, false, size, ext == ".lnk" || ext == ".url");
-			}
-
-			return GetIcon(ext, false, false, true, size, false);
-		}
-
-		public static ImageSource? GetFolderIcon(string path, bool open, int size) {
-			return GetIcon(path, true, open, false, size, false);
-		}
-
 		[LibraryImport("shell32.dll", StringMarshalling = StringMarshalling.Utf16)]
 		private static partial int SHParseDisplayName(
 			string pszName,
@@ -243,10 +205,10 @@ namespace FastExplorer.Helpers {
 			if (result == IntPtr.Zero) return null;
 
 			int iconIndex = shinfo.iIcon;
-			string cacheKey = $"{iconIndex}_{size}";
+			long cacheKey = ((long)iconIndex << 32) | (uint)size;
 
 			lock (_cacheLock) {
-				if (_iconCache.TryGetValue(cacheKey, out var cachedIcon)) return cachedIcon;
+				if (_indexCache.TryGetValue(cacheKey, out var cachedIcon)) return cachedIcon;
 			}
 
 			ImageSource? icon = null;
@@ -293,8 +255,8 @@ namespace FastExplorer.Helpers {
 			if (icon != null) {
 				icon.Freeze();
 				lock (_cacheLock) {
-					if (_iconCache.Count >= MaxCacheSize) _iconCache.Clear();
-					_iconCache[cacheKey] = icon;
+					if (_indexCache.Count >= MaxCacheSize) _indexCache.Clear();
+					_indexCache[cacheKey] = icon;
 				}
 			}
 

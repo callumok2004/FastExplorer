@@ -725,10 +725,10 @@ namespace FastExplorer.ViewModels {
 				var fileList = await Task.Run(() => {
 					var list = new List<FileItemViewModel>();
 					try {
-						foreach (var dir in directoryInfo.GetDirectories()) {
+						foreach (var dir in directoryInfo.EnumerateDirectories()) {
 							list.Add(new FolderItemViewModel(dir));
 						}
-						foreach (var file in directoryInfo.GetFiles()) {
+						foreach (var file in directoryInfo.EnumerateFiles()) {
 							if (!file.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) {
 								list.Add(new FileItemViewModel(file));
 							}
