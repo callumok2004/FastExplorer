@@ -266,8 +266,10 @@ namespace FastExplorer {
 								menu.Style = style;
 							}
 
-							var addItem = new MenuItem { Header = "Add network location" };
-							addItem.Icon = new TextBlock { Text = "\uE710", FontFamily = new FontFamily("Segoe Fluent Icons") };
+							MenuItem addItem = new () {
+								Header = "Add network location",
+								Icon = new TextBlock { Text = "\uE710", FontFamily = new FontFamily("Segoe Fluent Icons") }
+							};
 							addItem.Click += (s, args) => vm.AddNetworkShareCommand.Execute(null);
 							_ = menu.Items.Add(addItem);
 
@@ -277,8 +279,10 @@ namespace FastExplorer {
 							}
 							_ = menu.Items.Add(sep);
 
-							var propsItem = new MenuItem { Header = "Properties" };
-							propsItem.Icon = new TextBlock { Text = "\uE946", FontFamily = new FontFamily("Segoe Fluent Icons") };
+							MenuItem propsItem = new() {
+								Header = "Properties",
+								Icon = new TextBlock { Text = "\uE946", FontFamily = new FontFamily("Segoe Fluent Icons") }
+							};
 							propsItem.Click += (s, args) => {
 								try {
 									ShellContextMenu.ShowContextMenu(["::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"], point);

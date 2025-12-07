@@ -65,9 +65,6 @@ namespace FastExplorer.Helpers {
 		private static partial int SHGetSpecialFolderLocation(IntPtr hwnd, int csidl, out IntPtr ppidl);
 
 		[LibraryImport("shell32.dll")]
-		private static partial int SHCreateItemFromIDList(IntPtr pidl, in Guid riid, out IShellItem ppv);
-
-		[LibraryImport("shell32.dll")]
 		private static partial int SHCreateShellItem(IntPtr pidlParent, IShellFolder psfParent, IntPtr pidl, out IShellItem ppsi);
 
 		[LibraryImport("shell32.dll")]
@@ -199,12 +196,13 @@ namespace FastExplorer.Helpers {
 		}
 
 		public static bool ShowFileProperties(string filename) {
-			var info = new SHELLEXECUTEINFO();
-			info.cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>();
-			info.lpVerb = Marshal.StringToCoTaskMemUni("properties");
-			info.lpFile = Marshal.StringToCoTaskMemUni(filename);
-			info.nShow = SW_SHOW;
-			info.fMask = SEE_MASK_INVOKEIDLIST;
+			SHELLEXECUTEINFO info = new () {
+				cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>(),
+				lpVerb = Marshal.StringToCoTaskMemUni("properties"),
+				lpFile = Marshal.StringToCoTaskMemUni(filename),
+				nShow = SW_SHOW,
+				fMask = SEE_MASK_INVOKEIDLIST
+			};
 
 			try {
 				return ShellExecuteEx(ref info);

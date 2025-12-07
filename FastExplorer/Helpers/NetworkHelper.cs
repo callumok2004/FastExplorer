@@ -2,14 +2,11 @@ using System.Runtime.InteropServices;
 using System.ComponentModel;
 
 namespace FastExplorer.Helpers {
-	public static class NetworkHelper {
-		[DllImport("mpr.dll")]
-		private static extern int WNetAddConnection2(NetResource netResource, string password, string username, int flags);
+	public static partial class NetworkHelper {
+		[LibraryImport("mpr.dll", StringMarshalling = StringMarshalling.Utf16)]
+		private static partial int WNetAddConnection2(IntPtr netResource, string password, string username, int flags);
 
-		[DllImport("mpr.dll")]
-		private static extern int WNetCancelConnection2(string name, int flags, bool force);
-
-		[StructLayout(LayoutKind.Sequential)]
+		[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
 		public class NetResource {
 			public int Scope;
 			public int Type;
@@ -30,10 +27,17 @@ namespace FastExplorer.Helpers {
 				RemoteName = remoteName
 			};
 
-			int result = WNetAddConnection2(resource, password, username, 0);
+			IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf(resource));
+			try {
+				Marshal.StructureToPtr(resource, ptr, false);
+				int result = WNetAddConnection2(ptr, password, username, 0);
 
-			if (result != 0) {
-				throw new Win32Exception(result);
+				if (result != 0) {
+					throw new Win32Exception(result);
+				}
+			}
+			finally {
+				Marshal.FreeHGlobal(ptr);
 			}
 		}
 	}

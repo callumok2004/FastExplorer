@@ -319,7 +319,7 @@ namespace FastExplorer.Helpers {
 				_ = DestroyMenu(hMenu);
 			}
 			catch (Exception ex) {
-				_ = System.Windows.MessageBox.Show("Error showing context menu: " + ex.Message);
+				_ = MessageBox.Show("Error showing context menu: " + ex.Message);
 			}
 		}
 	}

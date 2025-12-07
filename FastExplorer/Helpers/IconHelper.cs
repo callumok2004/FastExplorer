@@ -50,9 +50,8 @@ namespace FastExplorer.Helpers {
 
 			if (string.IsNullOrEmpty(ext)) ext = ".file";
 
-			if (ext == ".exe" || ext == ".lnk" || ext == ".ico" || ext == ".url") {
+			if (ext == ".exe" || ext == ".lnk" || ext == ".ico" || ext == ".url")
 				return GetIcon(path, false, false, false, size, ext == ".lnk" || ext == ".url");
-			}
 
 			lock (_cacheLock) {
 				if (_stringCache.TryGetValue(ext, out var cachedIcon)) return cachedIcon;

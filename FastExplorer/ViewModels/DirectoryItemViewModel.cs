@@ -41,7 +41,7 @@ namespace FastExplorer.ViewModels {
 					if (isNetworkShare) {
 						var span = fullPath.AsSpan().TrimEnd('\\');
 						var lastIndex = span.LastIndexOf('\\');
-						var shareName = lastIndex >= 0 ? span.Slice(lastIndex + 1) : span;
+						var shareName = lastIndex >= 0 ? span[(lastIndex + 1)..] : span;
 						Name = StringPool.Shared.GetOrAdd(shareName);
 					}
 					else {
@@ -50,7 +50,7 @@ namespace FastExplorer.ViewModels {
 						} else {
 							var span = fullPath.AsSpan().TrimEnd(Path.DirectorySeparatorChar);
 							var lastIndex = span.LastIndexOf(Path.DirectorySeparatorChar);
-							var dirName = lastIndex >= 0 ? span.Slice(lastIndex + 1) : span;
+							var dirName = lastIndex >= 0 ? span[(lastIndex + 1)..] : span;
 							Name = StringPool.Shared.GetOrAdd(dirName);
 						}
 					}

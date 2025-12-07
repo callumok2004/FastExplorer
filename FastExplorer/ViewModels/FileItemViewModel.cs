@@ -227,14 +227,10 @@ namespace FastExplorer.ViewModels {
 		}
 	}
 
-	public class FolderItemViewModel : FileItemViewModel {
+	public class FolderItemViewModel(DirectoryInfo info, bool poolName = true) : FileItemViewModel(info.Name, info.FullName, GetDateModifiedSafe(info), poolName) {
 		public override bool IsFolder => true;
 		public override string Type => "File folder";
 		public override string DisplaySize => "";
-
-		public FolderItemViewModel(DirectoryInfo info, bool poolName = true)
-			: base(info.Name, info.FullName, GetDateModifiedSafe(info), poolName) {
-		}
 
 		private static DateTime GetDateModifiedSafe(DirectoryInfo info) {
 			try {

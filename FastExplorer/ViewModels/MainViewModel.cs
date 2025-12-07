@@ -79,7 +79,7 @@ namespace FastExplorer.ViewModels {
 				ClearSelection(Drives);
 				RecycleBin?.IsSelected = false;
 				var thisPC = Drives.FirstOrDefault(d => d.FullPath == "This PC");
-				if (thisPC != null) thisPC.IsSelected = true;
+				thisPC?.IsSelected = true;
 			});
 			NavigateToRecycleBinCommand = new RelayCommand(_ => {
 				SelectedTab?.NavigateTo(RecycleBin.FullPath);
@@ -267,7 +267,7 @@ namespace FastExplorer.ViewModels {
 
 				if (path == "This PC") {
 					var thisPC = Drives.FirstOrDefault(d => d.FullPath == "This PC");
-					if (thisPC != null) thisPC.IsSelected = true;
+					thisPC?.IsSelected = true;
 					return;
 				}
 

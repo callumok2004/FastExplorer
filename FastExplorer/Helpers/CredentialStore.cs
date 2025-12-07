@@ -19,9 +19,8 @@ namespace FastExplorer.Helpers {
 					var jsonBytes = ProtectedData.Unprotect(encryptedData, null, DataProtectionScope.CurrentUser);
 					var json = Encoding.UTF8.GetString(jsonBytes);
 					var loaded = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-					if (loaded != null) {
+					if (loaded != null)
 						_credentials = loaded;
-					}
 				}
 			}
 			catch { }
@@ -52,17 +51,15 @@ namespace FastExplorer.Helpers {
 		public static (string Username, string Password)? GetCredentials(string target) {
 			if (_credentials.TryGetValue(target.ToLowerInvariant(), out var data)) {
 				var parts = data.Split('|', 2);
-				if (parts.Length == 2) {
+				if (parts.Length == 2)
 					return (parts[0], parts[1]);
-				}
 			}
 			return null;
 		}
 
 		public static void RemoveCredentials(string target) {
-			if (_credentials.Remove(target.ToLowerInvariant())) {
+			if (_credentials.Remove(target.ToLowerInvariant()))
 				Save();
-			}
 		}
 	}
 }
