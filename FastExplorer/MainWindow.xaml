@@ -57,7 +57,7 @@
 
         <converters:PercentToColorConverter x:Key="PercentToColorConverter" />
         <converters:MathConverter x:Key="MathConverter" />
-        <helpers:BindingProxy x:Key="WindowProxy" Data="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
+        <helpers:BindingProxy x:Key="WindowProxy" Data="{Binding}" />
         <converters:PinnedToVisibilityConverter x:Key="PinnedToVisibilityConverter" />
         <converters:NullToVisibilityConverter x:Key="NullToVis" />
         <converters:CountToBoolConverter x:Key="CountToBoolConverter" />
@@ -229,11 +229,11 @@
                         <TextBox.InputBindings>
                             <KeyBinding
                                 Key="Enter"
-                                Command="{Binding DataContext.CommitRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                Command="{Binding Data.SelectedTab.CommitRenameCommand, Source={StaticResource WindowProxy}}"
                                 CommandParameter="{Binding}" />
                             <KeyBinding
                                 Key="Escape"
-                                Command="{Binding DataContext.CancelRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                Command="{Binding Data.SelectedTab.CancelRenameCommand, Source={StaticResource WindowProxy}}"
                                 CommandParameter="{Binding}" />
                         </TextBox.InputBindings>
                     </TextBox>
@@ -774,7 +774,7 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding Data.DataContext.PinToQuickAccessCommand, Source={StaticResource WindowProxy}}"
+                Command="{Binding Data.PinToQuickAccessCommand, Source={StaticResource WindowProxy}}"
                 CommandParameter="{Binding}"
                 Header="Pin to Quick Access"
                 Visibility="{Binding FullPath, Converter={StaticResource PinnedToVisibilityConverter}, ConverterParameter=Invert}">
@@ -783,7 +783,7 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding Data.DataContext.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
+                Command="{Binding Data.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
                 CommandParameter="{Binding}"
                 Header="Unpin from Quick Access"
                 Visibility="{Binding FullPath, Converter={StaticResource PinnedToVisibilityConverter}}">
@@ -792,7 +792,7 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding Data.DataContext.RemoveNetworkShareCommand, Source={StaticResource WindowProxy}}"
+                Command="{Binding Data.RemoveNetworkShareCommand, Source={StaticResource WindowProxy}}"
                 CommandParameter="{Binding}"
                 Header="Remove network location"
                 Visibility="{Binding IsNetworkShare, Converter={StaticResource BoolToVis}}">
@@ -908,11 +908,11 @@
                                                 <TextBox.InputBindings>
                                                     <KeyBinding
                                                         Key="Enter"
-                                                        Command="{Binding DataContext.CommitRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                        Command="{Binding Data.SelectedTab.CommitRenameCommand, Source={StaticResource WindowProxy}}"
                                                         CommandParameter="{Binding}" />
                                                     <KeyBinding
                                                         Key="Escape"
-                                                        Command="{Binding DataContext.CancelRenameCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                        Command="{Binding Data.SelectedTab.CancelRenameCommand, Source={StaticResource WindowProxy}}"
                                                         CommandParameter="{Binding}" />
                                                 </TextBox.InputBindings>
                                             </TextBox>
@@ -1403,7 +1403,7 @@
                                     <KeyBinding
                                         Key="Enter"
                                         Command="{Binding NavigateCommand}"
-                                        CommandParameter="{Binding Text, RelativeSource={RelativeSource AncestorType=TextBox}}" />
+                                        CommandParameter="{Binding AddressBarText}" />
                                     <KeyBinding Key="Escape" Command="{Binding TogglePathEditCommand}" />
                                 </TextBox.InputBindings>
                             </TextBox>
@@ -1748,7 +1748,7 @@
                                                 Opened="ContextMenu_Opened"
                                                 Style="{StaticResource DefaultContextMenuStyle}">
                                                 <MenuItem
-                                                    Command="{Binding Data.DataContext.SelectedTab.NavigateCommand, Source={StaticResource WindowProxy}}"
+                                                    Command="{Binding Data.SelectedTab.NavigateCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding FullPath}"
                                                     Header="Open">
                                                     <MenuItem.Icon>
@@ -1756,7 +1756,7 @@
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                                 <MenuItem
-                                                    Command="{Binding Data.DataContext.AddTabCommand, Source={StaticResource WindowProxy}}"
+                                                    Command="{Binding Data.AddTabCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding FullPath}"
                                                     Header="Open in new tab">
                                                     <MenuItem.Icon>
@@ -1765,7 +1765,7 @@
                                                 </MenuItem>
                                                 <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
                                                 <MenuItem
-                                                    Command="{Binding Data.DataContext.MovePinUpCommand, Source={StaticResource WindowProxy}}"
+                                                    Command="{Binding Data.MovePinUpCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
                                                     Header="Move Up">
                                                     <MenuItem.Icon>
@@ -1773,7 +1773,7 @@
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                                 <MenuItem
-                                                    Command="{Binding Data.DataContext.MovePinDownCommand, Source={StaticResource WindowProxy}}"
+                                                    Command="{Binding Data.MovePinDownCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
                                                     Header="Move Down">
                                                     <MenuItem.Icon>
@@ -1782,7 +1782,7 @@
                                                 </MenuItem>
                                                 <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
                                                 <MenuItem
-                                                    Command="{Binding Data.DataContext.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
+                                                    Command="{Binding Data.UnpinFromQuickAccessCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
                                                     Header="Unpin from Quick Access">
                                                     <MenuItem.Icon>
@@ -1791,7 +1791,7 @@
                                                 </MenuItem>
                                                 <Separator Style="{StaticResource ContextMenuSeparatorStyle}" />
                                                 <MenuItem
-                                                    Command="{Binding Data.DataContext.SelectedTab.PropertiesCommand, Source={StaticResource WindowProxy}}"
+                                                    Command="{Binding Data.SelectedTab.PropertiesCommand, Source={StaticResource WindowProxy}}"
                                                     CommandParameter="{Binding}"
                                                     Header="Properties">
                                                     <MenuItem.Icon>
@@ -1831,36 +1831,29 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
 
                                         <Image
-                                            Grid.RowSpan="2"
                                             Width="20"
                                             Height="20"
                                             Margin="0,0,10,0"
                                             VerticalAlignment="Center"
                                             Source="{Binding Icon}" />
 
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Text="{Binding Name}"
-                                            TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock
+                                                Text="{Binding Name}"
+                                                TextTrimming="CharacterEllipsis" />
 
-                                        <ProgressBar
-                                            Grid.Row="1"
-                                            Grid.Column="1"
-                                            Height="4"
-                                            Margin="0,4,10,0"
-                                            Background="#333"
-                                            BorderThickness="0"
-                                            Foreground="{Binding PercentUsed, Converter={StaticResource PercentToColorConverter}}"
-                                            Maximum="100"
-                                            Visibility="{Binding ShowCapacityBar, Converter={StaticResource BoolToVis}}"
-                                            Value="{Binding PercentUsed, Mode=OneWay}" />
+                                            <ProgressBar
+                                                Height="4"
+                                                Margin="0,4,10,0"
+                                                Background="#333"
+                                                BorderThickness="0"
+                                                Foreground="{Binding PercentUsed, Converter={StaticResource PercentToColorConverter}}"
+                                                Maximum="100"
+                                                Visibility="{Binding ShowCapacityBar, Converter={StaticResource BoolToVis}}"
+                                                Value="{Binding PercentUsed, Mode=OneWay}" />
+                                        </StackPanel>
                                     </Grid>
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
