@@ -94,7 +94,7 @@ namespace FastExplorer.ViewModels {
 						ulong free = 0;
 						bool success = false;
 
-						if (IsNetworkShare) {
+						if (IsNetworkShare || FullPath.StartsWith(@"\\")) {
 							if (ShellHelper.GetDiskFreeSpaceEx(FullPath, out ulong freeBytes, out ulong totalBytes, out _)) {
 								total = totalBytes;
 								free = freeBytes;
